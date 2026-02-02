@@ -148,52 +148,53 @@
   // Finish chime selection: 0=mechanical carillon, 1=melodic luxury, 2=morning bird
   let chimeMode = 0;
 
-  // Bird MP3s (two files in your GitHub repo, alternated each ring)
+// Bird MP3s (two files shipped with the site; alternated per TIMER completion)
 const BIRD_FILES = [
   'Cozumel Wren Timer.mp3',
   'Rose Throated Tanager Timer.mp3'
 ];
 
-let birdBuffers = [null, null];
-let birdNext = 0;      // toggles ONLY when a timer completes (next timer)
-let birdChosen = 0;    // locked for the current alarm session
-let birdLoading = null;
+// Use plain HTMLAudio so it's "just the file" (no synth, no filters, no random starts)
+const birdAudios = BIRD_FILES.map((src) => {
+  const a = new Audio(src);
+  a.preload = 'auto';
+  a.volume = 1.0;     // loud as browser allows
+  a.loop = false;
+  return a;
+});
 
+let birdNext = 0;        // toggles only when a timer completes
+let birdChosen = 0;      // locked for the current alarm session
+let birdStopTimeout = null;
 
-async function ensureBirdBuffersLoaded(){
-  // Only load if sound is enabled and AudioContext exists/allowed.
-  if (!audioOn) return;
-  ensureAudio();
-  if (birdBuffers[0] && birdBuffers[1]) return;
-  if (birdLoading) return birdLoading;
-
-  birdLoading = (async () => {
+function stopBirdAudio(){
+  for (const a of birdAudios){
     try{
-      const arrs = await Promise.all(
-        BIRD_FILES.map(async (url) => {
-          const res = await fetch(url);
-          if (!res.ok) throw new Error('Failed to load: ' + url);
-          return await res.arrayBuffer();
-        })
-      );
+      a.pause();
+      a.currentTime = 0;
+      a.loop = false;
+      a.volume = 1.0;
+    }catch(e){}
+  }
+  if (birdStopTimeout){
+    clearTimeout(birdStopTimeout);
+    birdStopTimeout = null;
+  }
+}
 
-      const decoded = await Promise.all(
-        arrs.map(b => audioCtx.decodeAudioData(b.slice(0)))
-      );
-
-      birdBuffers[0] = decoded[0];
-      birdBuffers[1] = decoded[1];
-    } catch(e){
-      console.warn('[GILT] bird mp3 load failed', e);
-    } finally {
-      birdLoading = null;
+// Keep this name because your code already calls it
+async function ensureBirdBuffersLoaded(){
+  // Warm-load files; no AudioContext needed
+  try{
+    for (const a of birdAudios){
+      a.volume = 1.0;
+      a.load();
     }
-  })();
-
-  return birdLoading;
+  }catch(e){}
 }
 
 const CHIME_NAMES = ['MECH','MELODY','BIRD'];
+
 
 
   // Gain tuning
@@ -280,11 +281,16 @@ const CHIME_NAMES = ['MECH','MELODY','BIRD'];
     if (tickTimeout){ clearTimeout(tickTimeout); tickTimeout=null; }
   }
   function stopAlarm(){
-    alarmActive = false;
-    if (alarmInterval){ clearInterval(alarmInterval); alarmInterval = null; }
-    if (alarmStopTimeout){ clearTimeout(alarmStopTimeout); alarmStopTimeout = null; }
-    setHint();
-  }
+  alarmActive = false;
+
+  // ✅ stop any playing bird MP3 alarm
+  stopBirdAudio();
+
+  if (alarmInterval){ clearInterval(alarmInterval); alarmInterval = null; }
+  if (alarmStopTimeout){ clearTimeout(alarmStopTimeout); alarmStopTimeout = null; }
+  setHint();
+}
+
   function ensureAudio(){
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (!bus) setupAudioChain();
@@ -739,29 +745,49 @@ if (birdBuffers[0] && birdBuffers[1]){
   }
 
   function startAlarm(){
-    if (!audioOn) return;
-    ensureAudio();
-    stopTicking();
-    stopAlarm();
+  if (!audioOn) return;
 
-    alarmActive = true;
-    setHint();
+  // For non-bird modes you still use WebAudio chain
+  ensureAudio();
+  stopTicking();
+  stopAlarm();
 
-    let v = 0;
-    const motif = () => {
-      if (!alarmActive) return;
-      playSelectedAlarmMotif(v++);
-    };
+  alarmActive = true;
+  setHint();
 
-    motif();
+  // ✅ Bird mode = play ONE mp3 continuously for 2 minutes, nothing else
+  if (chimeMode === 2){
+    ensureBirdBuffersLoaded();
 
-    // Repeat cadence: keep it classy. Birds ring slower; melody/mech can vary slightly.
-    const baseInt = (chimeMode === 2) ? 3600 : 2400;
-    const intervalMs = baseInt + (Math.random()*220 - 110);
-    alarmInterval = setInterval(motif, intervalMs);
+    const a = birdAudios[birdChosen];
+    try{
+      a.currentTime = 0;
+      a.volume = 1.0;
+      a.loop = true;
+      a.play().catch(()=>{});
+    }catch(e){}
 
-    alarmStopTimeout = setTimeout(()=> stopAlarm(), 60_000);
+    // stop after 2 minutes (or earlier if user presses knob which calls stopAlarm())
+    birdStopTimeout = setTimeout(() => stopAlarm(), 120_000);
+    return;
   }
+
+  // === Original behavior for MECH / MELODY ===
+  let v = 0;
+  const motif = () => {
+    if (!alarmActive) return;
+    playSelectedAlarmMotif(v++);
+  };
+
+  motif();
+
+  const intervalMs = 2400 + (Math.random()*220 - 110);
+  alarmInterval = setInterval(motif, intervalMs);
+
+  alarmStopTimeout = setTimeout(()=> stopAlarm(), 60_000);
+}
+
+  
   function startTicking(){
     if (!audioOn) return;
     ensureAudio();
