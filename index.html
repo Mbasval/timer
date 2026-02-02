@@ -155,8 +155,10 @@ const BIRD_FILES = [
 ];
 
 let birdBuffers = [null, null];
-let birdAlt = 0;          // toggles 0/1 each time the bird chime plays
+let birdNext = 0;      // toggles ONLY when a timer completes (next timer)
+let birdChosen = 0;    // locked for the current alarm session
 let birdLoading = null;
+
 
 async function ensureBirdBuffersLoaded(){
   // Only load if sound is enabled and AudioContext exists/allowed.
@@ -660,8 +662,7 @@ const CHIME_NAMES = ['MECH','MELODY','BIRD'];
 
     // Prefer the two built-in bird recordings (alternating each chime).
 if (birdBuffers[0] && birdBuffers[1]){
-  const buf = birdBuffers[birdAlt];
-  birdAlt = 1 - birdAlt;
+  const buf = birdBuffers[birdChosen];
 
   const src = audioCtx.createBufferSource();
   src.buffer = buf;
@@ -740,6 +741,12 @@ if (birdBuffers[0] && birdBuffers[1]){
   function startAlarm(){
     if (!audioOn) return;
     ensureAudio();
+    // ✅ Lock bird choice for this alarm, and toggle for next timer completion
+if (chimeMode === 2) {
+  birdChosen = birdNext;
+  birdNext = 1 - birdNext;
+}
+
     stopTicking();
     stopAlarm();
 
