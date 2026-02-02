@@ -148,44 +148,51 @@
   // Finish chime selection: 0=mechanical carillon, 1=melodic luxury, 2=morning bird
   let chimeMode = 0;
 
-  // Optional: real bird audio (user-provided MP3/WAV). We can't fetch external MP3s in this sandbox,
-  // but you can drop a file onto the timer to load a real recording.
-  let birdBuffer = null;
-  let birdName = '';
-  async function loadBirdFile(file){
-    try{
-      ensureAudio();
-      const arr = await file.arrayBuffer();
-      birdBuffer = await audioCtx.decodeAudioData(arr.slice(0));
-      birdName = file.name || 'bird';
-      const h = document.getElementById('hint');
-      h.textContent = 'Bird loaded: ' + birdName;
-      setTimeout(setHint, 900);
-    } catch(e){
-      console.warn('[GILT] bird load failed', e);
-      const h = document.getElementById('hint');
-      h.textContent = 'Could not load that audio file.';
-      setTimeout(setHint, 900);
-    }
-  }
+  // Bird MP3s (two files in your GitHub repo, alternated each ring)
+const BIRD_FILES = [
+  'Cozumel Wren Timer.mp3',
+  'Rose Throated Tanager Timer.mp3'
+];
 
-  // Drag & drop: drop an MP3/WAV onto the timer to use it for BIRD chime.
-  ;(function setupBirdDrop(){
-    const stop = (e)=>{ e.preventDefault(); e.stopPropagation(); };
-    ['dragenter','dragover','dragleave','drop'].forEach(ev=>{
-      shell.addEventListener(ev, stop);
-      canvas.addEventListener(ev, stop);
-    });
-    shell.addEventListener('drop', async (e)=>{
-      const f = e.dataTransfer?.files?.[0];
-      if (!f) return;
-      if (!/^audio\//.test(f.type) && !/\.(mp3|wav|ogg|m4a)$/i.test(f.name||'')) return;
-      audioOn = true;
-      document.getElementById('soundBtn').textContent = '🔊';
-      await loadBirdFile(f);
-    });
+let birdBuffers = [null, null];
+let birdAlt = 0;          // toggles 0/1 each time the bird chime plays
+let birdLoading = null;
+
+async function ensureBirdBuffersLoaded(){
+  // Only load if sound is enabled and AudioContext exists/allowed.
+  if (!audioOn) return;
+  ensureAudio();
+  if (birdBuffers[0] && birdBuffers[1]) return;
+  if (birdLoading) return birdLoading;
+
+  birdLoading = (async () => {
+    try{
+      const arrs = await Promise.all(
+        BIRD_FILES.map(async (url) => {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error('Failed to load: ' + url);
+          return await res.arrayBuffer();
+        })
+      );
+
+      const decoded = await Promise.all(
+        arrs.map(b => audioCtx.decodeAudioData(b.slice(0)))
+      );
+
+      birdBuffers[0] = decoded[0];
+      birdBuffers[1] = decoded[1];
+    } catch(e){
+      console.warn('[GILT] bird mp3 load failed', e);
+    } finally {
+      birdLoading = null;
+    }
   })();
-  const CHIME_NAMES = ['MECH','MELODY','BIRD'];
+
+  return birdLoading;
+}
+
+const CHIME_NAMES = ['MECH','MELODY','BIRD'];
+
 
   // Gain tuning
   // (We keep the tick polite; the alarm is clearly audible but "luxury"—rounded + reverbed.)
@@ -651,36 +658,40 @@
     if (!audioOn || !audioCtx) return;
     const t = audioCtx.currentTime;
 
-    // Prefer REAL bird recording if user dropped a file.
-    if (birdBuffer){
-      const src = audioCtx.createBufferSource();
-      src.buffer = birdBuffer;
+    // Prefer the two built-in bird recordings (alternating each chime).
+if (birdBuffers[0] && birdBuffers[1]){
+  const buf = birdBuffers[birdAlt];
+  birdAlt = 1 - birdAlt;
 
-      // Pick a random start window so it doesn't feel looped
-      const maxStart = Math.max(0, birdBuffer.duration - 1.6);
-      const startAt = (maxStart > 0) ? Math.random()*maxStart : 0;
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
 
-      const g = audioCtx.createGain();
-      g.gain.setValueAtTime(0.00001, t);
-      g.gain.exponentialRampToValueAtTime(ALARM_VOL*1.00, t+0.020);
-      g.gain.exponentialRampToValueAtTime(0.00001, t+1.60);
+  // Pick a random start window so it doesn't feel looped
+  const maxStart = Math.max(0, buf.duration - 1.6);
+  const startAt = (maxStart > 0) ? Math.random()*maxStart : 0;
 
-      // Tame harshness (birds can be piercing)
-      const lp = audioCtx.createBiquadFilter();
-      lp.type = 'lowpass';
-      lp.frequency.setValueAtTime(7400, t);
-      lp.Q.setValueAtTime(0.7, t);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.00001, t);
+  g.gain.exponentialRampToValueAtTime(ALARM_VOL*1.00, t+0.020);
+  g.gain.exponentialRampToValueAtTime(0.00001, t+1.60);
 
-      const hs = audioCtx.createBiquadFilter();
-      hs.type = 'highshelf';
-      hs.frequency.setValueAtTime(5600, t);
-      hs.gain.setValueAtTime(-5.5, t);
+  // Tame harshness (birds can be piercing)
+  const lp = audioCtx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(7400, t);
+  lp.Q.setValueAtTime(0.7, t);
 
-      src.connect(lp).connect(hs).connect(g).connect(bus);
-      src.start(t, startAt);
-      src.stop(t + 1.6);
-      return;
-    }
+  const hs = audioCtx.createBiquadFilter();
+  hs.type = 'highshelf';
+  hs.frequency.setValueAtTime(5600, t);
+  hs.gain.setValueAtTime(-5.5, t);
+
+  src.connect(lp).connect(hs).connect(g).connect(bus);
+  src.start(t, startAt);
+  src.stop(t + 1.6);
+  return;
+}
+
 
     // Fallback synthesized bird (kept gentle) if no recording was provided.
     function birdChirp(at, baseHz){
@@ -1010,6 +1021,7 @@
   function setChimeMode(m, announce=false){
     chimeMode = clamp(Math.round(m), 0, 2);
     updateChimeUI();
+    if (chimeMode === 2) ensureBirdBuffersLoaded();
     chSel.title = 'Finish chime: ' + CHIME_NAMES[chimeMode];
     if (announce){
       const h = document.getElementById('hint');
@@ -1600,7 +1612,7 @@
       const secs = Math.round(dialArcMin * 60);
       totalSec = secs;
       remainingSec = secs;
-      
+
      } else {
     // ✅ Normal countdown based on real elapsed time (survives hidden tabs/minimize)
     const elapsed = (performance.now() - runStartT) / 1000;
@@ -1613,6 +1625,7 @@
       // Alarm: ring for up to 60s or until knob press.
       if (audioOn){
         ensureAudio();
+        if (chimeMode === 2) ensureBirdBuffersLoaded();
         try{ audioCtx.resume(); }catch(e){}
         startAlarm();
       }
