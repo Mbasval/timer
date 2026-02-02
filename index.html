@@ -771,9 +771,19 @@
 
   function commitDial(){
     dialArcMin = clamp(dialArcMin, 0, MAX_MIN);
-    totalSec = Math.round(dialArcMin * 60);
-    remainingSec = totalSec;
+
+    // This is the *new target remaining time* you just set by winding the dial
+    const newRemaining = Math.round(dialArcMin * 60);
+
+    totalSec = newRemaining;
+    remainingSec = newRemaining;
+
+    // ✅ Critical: re-anchor countdown to the newly set remaining time
+    // so it doesn't "snap back" to the old runStartRemaining when you release.
+    runStartT = performance.now();
+    runStartRemaining = remainingSec;
   }
+
 
   function resetAll(){
     stopAlarm();
@@ -1627,16 +1637,16 @@
         commitDial();
         commitPending = false;
 
-        // Start automatically once it settles (only if we were not already running)
         if (!running && autoStartPending && remainingSec > 0){
           running = true;
 
-          // ✅ anchor start time here too
+          // ✅ anchor countdown at the moment it starts
           runStartT = performance.now();
           runStartRemaining = remainingSec;
 
           startTicking();
         }
+
 
         autoStartPending = false;
         setHint();
