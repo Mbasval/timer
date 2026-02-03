@@ -811,19 +811,19 @@ if (birdBuffers[0] && birdBuffers[1]){
   }
 
   function commitDial(){
-    dialArcMin = clamp(dialArcMin, 0, MAX_MIN);
+  // ✅ NEW: if an alarm is currently ringing, committing a new time cancels it immediately
+  stopAlarm();
 
-    // This is the *new target remaining time* you just set by winding the dial
-    const newRemaining = Math.round(dialArcMin * 60);
+  dialArcMin = clamp(dialArcMin, 0, MAX_MIN);
 
-    totalSec = newRemaining;
-    remainingSec = newRemaining;
+  const newRemaining = Math.round(dialArcMin * 60);
 
-    // ✅ Critical: re-anchor countdown to the newly set remaining time
-    // so it doesn't "snap back" to the old runStartRemaining when you release.
-    runStartT = performance.now();
-    runStartRemaining = remainingSec;
-  }
+  totalSec = newRemaining;
+  remainingSec = newRemaining;
+
+  runStartT = performance.now();
+  runStartRemaining = remainingSec;
+}
 
   function stopFinishWatch(){
   if (finishWatch){
@@ -833,31 +833,30 @@ if (birdBuffers[0] && birdBuffers[1]){
 }
 
 function onTimerFinished(){
-  if (!running) return; // guard against double-fire (RAF + watcher)
+  if (!running) return;
 
   remainingSec = 0;
   running = false;
 
+  // ✅ NEW: force dial visuals to 0 immediately (even if rAF is paused in background)
+  dialArcMin = 0;
+  dialArcMinTarget = 0;
+  dialArcMinTargetRaw = 0;
+  dialTargetVel = 0;
+  dialVel = 0;
+
   stopFinishWatch();
   stopTicking();
 
-  // Start finish sound immediately (even if tab hidden)
   if (audioOn){
     ensureAudio();
-
-    // If you're using bird alternation, keep it here (one toggle per timer completion)
-    if (chimeMode === 2){
-      ensureBirdBuffersLoaded();
-      birdChosen = birdNext;
-      birdNext = 1 - birdNext;
-    }
-
     try{ audioCtx.resume(); }catch(e){}
     startAlarm();
   }
 
   setHint();
 }
+
 
 function startFinishWatch(){
   if (finishWatch) return;
