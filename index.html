@@ -27,11 +27,11 @@
   /* Chime selector (slide switch: 3 options) */
   .chimeSwitch{position:relative;width:180px;height:34px;border-radius:999px;border:1px solid rgba(243,239,230,.18);
     background:rgba(11,11,13,.72);backdrop-filter: blur(6px);
-    display:grid;grid-template-columns:repeat(3,1fr);align-items:center;overflow:hidden;
+    display:grid;grid-template-columns:repeat(5,1fr);align-items:center;overflow:hidden;
     box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
     cursor:pointer;
   }
-  .chimeSwitch .thumb{position:absolute;top:3px;bottom:3px;left:3px;width:calc((100% - 6px)/3);
+  .chimeSwitch .thumb{position:absolute;top:3px;bottom:3px;left:3px;width:calc((100% - 6px)/5);
     border-radius:999px;
     background:radial-gradient(circle at 30% 30%, rgba(255,255,255,.70), rgba(208,171,76,.88) 38%, rgba(208,171,76,1) 72%);
     box-shadow:0 8px 22px rgba(208,171,76,.14), inset 0 1px 0 rgba(255,255,255,.22);
@@ -75,12 +75,16 @@
       <div class="mini">
         <button class="btn" id="soundBtn" title="Toggle ticking">🔇</button>
         <button class="btn" id="pipBtn" title="Mini window (if supported)">⧉</button>
-        <div class="chimeSwitch" id="chimeSel" title="Finish chime" aria-label="Finish chime">
-          <div class="thumb" id="chimeThumb" aria-hidden="true"></div>
-          <div class="opt sel" data-i="0">MECH</div>
-          <div class="opt" data-i="1">MELODY</div>
-          <div class="opt" data-i="2">BIRD</div>
-        </div>
+        <div class="chimeSwitch" id="chimeSel" title="Finish sound" aria-label="Finish sound">
+  <div class="thumb" id="chimeThumb" aria-hidden="true"></div>
+
+  <div class="opt sel" data-i="0">NONE</div>
+  <div class="opt" data-i="1">BEEP</div>
+  <div class="opt" data-i="2">ALARM</div>
+  <div class="opt" data-i="3">CHIME</div>
+  <div class="opt" data-i="4">BIRDS</div>
+</div>
+
       </div>
       <div class="hint" id="hint">Drag dial hand to set the timer, release to start</div>
     </div>
@@ -202,9 +206,9 @@ const CHIME_NAMES = ['MECH','MELODY','BIRD'];
 
   // Gain tuning
   // (We keep the tick polite; the alarm is clearly audible but "luxury"—rounded + reverbed.)
-  const TICK_VOL = 0.040; // keep tick polite
+  const TICK_VOL = 0.125; // keep tick polite
   // NOTE: Alarm volume is intentionally high; users can always mute 🔇.
-  const ALARM_VOL = 0.42;  // loud as possible (compressor prevents clipping)
+  const ALARM_VOL = 1.0;  // loud as possible (compressor prevents clipping)
 
   // Audio bus chain (simple "luxury" polish): dry + subtle convolution reverb + gentle compressor.
   let bus = null;
@@ -977,20 +981,18 @@ function toggleRun(){
 
 
   document.getElementById('soundBtn').addEventListener('click', async () => {
-    audioOn = !audioOn;
+    audioOn = !audioOn; // ticking only
     document.getElementById('soundBtn').textContent = audioOn ? '🔊' : '🔇';
 
     if (audioOn){
       ensureAudio();
       try{ await audioCtx.resume(); }catch(e){}
-      // If we're running, resume ticking. If we're alarming, resume alarm.
       if (running) startTicking();
-      else if (alarmActive) startAlarm();
     } else {
       stopTicking();
-      stopAlarm();
     }
   });
+
 
   // Picture-in-Picture / mini-window
   // Goal: freely resizable mini view, readable down to 120px.
@@ -1088,88 +1090,118 @@ function toggleRun(){
     // Best-effort min clamp (browser may restrict).
     w.addEventListener?.('resize', () => clampWindowMinSize(w));
   });
+// --- Chime selector (slide switch: 5 options) ---
+const chSel = document.getElementById('chimeSel');
+const chThumb = document.getElementById('chimeThumb');
 
-  // --- Chime selector (slide switch: 3 options) ---
-  const chSel = document.getElementById('chimeSel');
-  const chThumb = document.getElementById('chimeThumb');
-  const chOpts = Array.from(chSel.querySelectorAll('.opt'));
+const CHIME_NAMES = ['NONE','BEEP','ALARM','CHIME','BIRDS'];
+const CHIME_COUNT = CHIME_NAMES.length;
 
-  function updateChimeUI(dragX=null){
-    // If dragX provided (0..2 float), move thumb continuously.
-    const segW = (chSel.getBoundingClientRect().width - 6) / 3;
-    const x = (dragX === null) ? chimeMode : clamp(dragX, 0, 2);
-    chThumb.style.transform = `translateX(${x * segW}px)`;
+// IMPORTANT: chimeMode must exist globally (keep your existing one)
+function updateChimeUI(dragIndex=null){
+  const r = chSel.getBoundingClientRect();
+  const segW = (r.width - 6) / CHIME_COUNT; // matches your 3px+3px padding
 
-    for (const el of chOpts){
-      const i = Number(el.dataset.i);
-      el.classList.toggle('sel', i === chimeMode);
-    }
+  // dragIndex is a float, we map to continuous motion but keep in range
+  const xIdx = (dragIndex === null) ? chimeMode : clamp(dragIndex, 0, CHIME_COUNT - 1);
+  const xPx = Math.round(xIdx * segW); // pixel snap removes visual jitter
+  chThumb.style.transform = `translateX(${xPx}px)`;
+
+  const opts = chSel.querySelectorAll('.opt');
+  opts.forEach(el => {
+    const i = Number(el.dataset.i);
+    el.classList.toggle('sel', i === chimeMode);
+  });
+
+  chSel.title = 'Finish sound: ' + CHIME_NAMES[chimeMode];
+}
+
+function setChimeMode(m, announce=false){
+  chimeMode = clamp(Math.round(m), 0, CHIME_COUNT - 1);
+
+  // Warm load birds when selected (BIRDS is index 4 now)
+  if (chimeMode === 4) ensureBirdBuffersLoaded();
+
+  updateChimeUI();
+
+  if (announce){
+    const h = document.getElementById('hint');
+    h.textContent = 'finish sound: ' + CHIME_NAMES[chimeMode].toLowerCase();
+    setTimeout(setHint, 900);
   }
+}
 
-  function setChimeMode(m, announce=false){
-    chimeMode = clamp(Math.round(m), 0, 2);
-    updateChimeUI();
-    if (chimeMode === 2) ensureBirdBuffersLoaded();
-    chSel.title = 'Finish chime: ' + CHIME_NAMES[chimeMode];
-    if (announce){
-      const h = document.getElementById('hint');
-      h.textContent = 'finish chime: ' + (chimeMode===0?'mechanical':(chimeMode===1?'melodic':'morning bird'));
-      setTimeout(setHint, 900);
-    }
-  }
+// Drag math helper
+function chimeIndexFromClientX(clientX){
+  const r = chSel.getBoundingClientRect();
+  const x = clamp(clientX - r.left - 3, 0, r.width - 6); // content width
+  const segW = (r.width - 6) / CHIME_COUNT;
+  return x / segW; // float index 0..(count-1)
+}
 
-  // initialize
-  setChimeMode(chimeMode);
+// Pointer-only interactions (smooth + click-to-snap)
+let chDrag = false;
+let chPid = null;
+let chStartX = 0;
+let chMoved = false;
 
-  // Click selection
-  chSel.addEventListener('click', (e)=>{
-    const opt = e.target?.closest?.('.opt');
-    if (!opt) return;
+chSel.addEventListener('pointerdown', (e)=>{
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+  // unlock audio early so alarms can play later even if ticking is muted
+  try{ ensureAudio(); audioCtx.resume(); }catch(_){}
+
+  chDrag = true;
+  chPid = e.pointerId;
+  chStartX = e.clientX;
+  chMoved = false;
+
+  chSel.classList.add('dragging');
+  try{ chSel.setPointerCapture(chPid); }catch(err){}
+
+  // If user pressed directly on an option label, snap immediately
+  const opt = e.target?.closest?.('.opt');
+  if (opt){
     setChimeMode(Number(opt.dataset.i), true);
-  });
-
-  // Drag thumb selection
-  let chDrag = false;
-  let chPid = null;
-
-  function chimeIndexFromClientX(clientX){
-    const r = chSel.getBoundingClientRect();
-    const x = clamp(clientX - r.left - 3, 0, r.width - 6); // content width
-    const segW = (r.width - 6) / 3;
-    return x / segW; // 0..3, we clamp later
+    return;
   }
 
-  chSel.addEventListener('pointerdown', (e)=>{
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    chDrag = true;
-    chPid = e.pointerId;
-    chSel.classList.add('dragging');
-    try{ chSel.setPointerCapture(chPid); }catch(err){}
-    updateChimeUI(chimeIndexFromClientX(e.clientX));
-  });
+  // Otherwise begin smooth drag
+  updateChimeUI(chimeIndexFromClientX(e.clientX));
+});
 
-  chSel.addEventListener('pointermove', (e)=>{
-    if (!chDrag || e.pointerId !== chPid) return;
-    updateChimeUI(chimeIndexFromClientX(e.clientX));
-  });
+chSel.addEventListener('pointermove', (e)=>{
+  if (!chDrag || e.pointerId !== chPid) return;
 
-  const chUp = (e)=>{
-    if (!chDrag || e.pointerId !== chPid) return;
-    chDrag = false;
-    chSel.classList.remove('dragging');
-    try{ chSel.releasePointerCapture(chPid); }catch(err){}
-    chPid = null;
-    setChimeMode(chimeIndexFromClientX(e.clientX), true);
-  };
+  if (Math.abs(e.clientX - chStartX) > 3) chMoved = true;
 
-  chSel.addEventListener('pointerup', chUp);
-  chSel.addEventListener('pointercancel', chUp);
-  chSel.addEventListener('lostpointercapture', ()=>{
-    chDrag = false;
-    chSel.classList.remove('dragging');
-    chPid = null;
-    updateChimeUI();
-  });
+  updateChimeUI(chimeIndexFromClientX(e.clientX));
+});
+
+const chUp = (e)=>{
+  if (!chDrag || e.pointerId !== chPid) return;
+
+  chDrag = false;
+  chSel.classList.remove('dragging');
+  try{ chSel.releasePointerCapture(chPid); }catch(err){}
+  chPid = null;
+
+  // Always snap to nearest segment on release
+  setChimeMode(chimeIndexFromClientX(e.clientX), true);
+};
+
+chSel.addEventListener('pointerup', chUp);
+chSel.addEventListener('pointercancel', chUp);
+chSel.addEventListener('lostpointercapture', ()=>{
+  chDrag = false;
+  chSel.classList.remove('dragging');
+  chPid = null;
+  updateChimeUI();
+});
+
+// initialize UI
+setChimeMode(chimeMode);
+
 
   // pointer interactions
   let pointerId = null;
