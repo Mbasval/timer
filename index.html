@@ -108,6 +108,9 @@
   let runStartT = 0;          // performance.now() when countdown started/resumed
   let runStartRemaining = 0;  // remainingSec at start/resume
 
+  let finishWatch = null;     // NEW: background watcher so finish triggers even when tab is hidden
+
+
   // physical-ish dial state
   let dialArcMin = 0;
   let dialArcMinTarget = 0;      // smoothed/inertial target
@@ -787,7 +790,7 @@ if (birdBuffers[0] && birdBuffers[1]){
   alarmStopTimeout = setTimeout(()=> stopAlarm(), 60_000);
 }
 
-  
+
   function startTicking(){
     if (!audioOn) return;
     ensureAudio();
@@ -821,6 +824,62 @@ if (birdBuffers[0] && birdBuffers[1]){
     runStartT = performance.now();
     runStartRemaining = remainingSec;
   }
+
+  function stopFinishWatch(){
+  if (finishWatch){
+    clearInterval(finishWatch);
+    finishWatch = null;
+  }
+}
+
+function onTimerFinished(){
+  if (!running) return; // guard against double-fire (RAF + watcher)
+
+  remainingSec = 0;
+  running = false;
+
+  stopFinishWatch();
+  stopTicking();
+
+  // Start finish sound immediately (even if tab hidden)
+  if (audioOn){
+    ensureAudio();
+
+    // If you're using bird alternation, keep it here (one toggle per timer completion)
+    if (chimeMode === 2){
+      ensureBirdBuffersLoaded();
+      birdChosen = birdNext;
+      birdNext = 1 - birdNext;
+    }
+
+    try{ audioCtx.resume(); }catch(e){}
+    startAlarm();
+  }
+
+  setHint();
+}
+
+function startFinishWatch(){
+  if (finishWatch) return;
+
+  finishWatch = setInterval(() => {
+    if (!running) return;
+    if (resetting) return;
+
+    const now = performance.now();
+    const wheelWinding = now < wheelActiveUntil;
+    const interacting = dragging || wheelWinding || commitPending;
+    if (interacting) return;
+
+    const elapsed = (performance.now() - runStartT) / 1000;
+    const rem = runStartRemaining - elapsed;
+
+    if (rem <= 0){
+      onTimerFinished();
+    }
+  }, 500); // 500ms is fine; in background it will be clamped but still fires
+}
+
 
 
   function resetAll(){
@@ -857,6 +916,7 @@ if (birdBuffers[0] && birdBuffers[1]){
     resetting = false;
 
     stopTicking();
+    stopFinishWatch();
     setHint();
   }
 
@@ -897,22 +957,24 @@ if (birdBuffers[0] && birdBuffers[1]){
     setHint();
   }
 
-  function toggleRun(){
-    if (remainingSec <= 0) return;
-      // If alarm is active, knob press should have stopped it before this.
-      running = !running;
+function toggleRun(){
+  if (remainingSec <= 0) return;
+  // If alarm is active, knob press should have stopped it before this.
+  running = !running;
 
-    if (running){
-      // ✅ anchor the countdown to real elapsed time (works across tab hide/minimize)
-      runStartT = performance.now();
-      runStartRemaining = remainingSec;
+  if (running){
+    runStartT = performance.now();
+    runStartRemaining = remainingSec;
 
-      startTicking();
-    } else {
-      stopTicking();
-    }
-    setHint();
+    startTicking();
+    startFinishWatch();
+  } else {
+    stopTicking();
+    stopFinishWatch();
   }
+
+  setHint();
+}
 
 
   document.getElementById('soundBtn').addEventListener('click', async () => {
@@ -1641,36 +1703,19 @@ if (birdBuffers[0] && birdBuffers[1]){
       remainingSec = secs;
 
      } else {
-    // ✅ Normal countdown based on real elapsed time (survives hidden tabs/minimize)
-    const elapsed = (performance.now() - runStartT) / 1000;
-    remainingSec = Math.max(0, runStartRemaining - elapsed);
+  // ✅ Normal countdown based on real elapsed time (survives hidden tabs/minimize)
+  const elapsed = (performance.now() - runStartT) / 1000;
+  remainingSec = Math.max(0, runStartRemaining - elapsed);
 
-    if (remainingSec <= 0){
-      remainingSec = 0;
-      running = false;
-      stopTicking();
-      // Alarm: ring for up to 60s or until knob press.
-      if (audioOn){
-  ensureAudio();
-
-  // ✅ Choose bird sound ONCE per timer completion, then toggle for the next timer
-  if (chimeMode === 2) {
-    ensureBirdBuffersLoaded();
-    birdChosen = birdNext;
-    birdNext = 1 - birdNext;
+  if (remainingSec <= 0){
+    onTimerFinished();   // ✅ single source of truth (RAF + background watcher)
   }
 
-  try{ audioCtx.resume(); }catch(e){}
-  startAlarm();
+  dialArcMin = remainingSec/60;
+  dialArcMinTarget = dialArcMin;
+  dialVel = 0;
 }
 
-      setHint();
-    }
-
-    dialArcMin = remainingSec/60;
-    dialArcMinTarget = dialArcMin;
-    dialVel = 0;
-  }
 
 
     // Commit once the dial has settled (prevents snapping on release)
@@ -1693,6 +1738,8 @@ if (birdBuffers[0] && birdBuffers[1]){
           runStartRemaining = remainingSec;
 
           startTicking();
+          startFinishWatch();
+
         }
 
 
