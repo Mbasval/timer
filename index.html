@@ -143,6 +143,7 @@
 
   let finishWatch = null;     // NEW: background watcher so finish triggers even when tab is hidden
 
+  let knobDown = false;
 
   // physical-ish dial state
   let dialArcMin = 0;
@@ -1307,6 +1308,7 @@ setChimeMode(chimeMode);
     const x=e.clientX, y=e.clientY;
 
     if (withinKnob(x,y)){
+      knobDown = true;
       // If alarm is ringing, the knob is the "stop".
       if (alarmActive){
         stopAlarm();
@@ -1350,6 +1352,7 @@ setChimeMode(chimeMode);
   }
 
   function onUp(e){
+    knobDown = false;
     if (!dragging || e.pointerId !== pointerId) return;
     dragging = false;
     try{ canvas.releasePointerCapture(pointerId); }catch(e){}
@@ -1384,6 +1387,11 @@ setChimeMode(chimeMode);
       setHint();
     }
   });
+
+  // ✅ Ensure knob always visually releases even if pointerup happens off-canvas
+window.addEventListener('pointerup', () => { knobDown = false; }, { passive:true });
+window.addEventListener('pointercancel', () => { knobDown = false; }, { passive:true });
+window.addEventListener('blur', () => { knobDown = false; });
 
   // Trackpad / mouse wheel control — smooth like dragging
   // Strategy: treat wheel deltas as an "impulse" that nudges the target, then let the spring
@@ -1682,82 +1690,126 @@ setChimeMode(chimeMode);
     }
     ctx.restore();
 
-// knob (Art Deco push button)
+// --- Knob: Art Deco 4-spike diamond bezel + round push button ---
 ctx.save();
 ctx.translate(cx, cy);
 
-// Subtle drop shadow so it feels raised/pushable
-ctx.shadowColor = 'rgba(0,0,0,0.35)';
-ctx.shadowBlur  = w * 0.018;
-ctx.shadowOffsetY = w * 0.006;
+const pressed = !!knobDown;
+const k = knobR; // your existing knob radius baseline
 
-// Outer bezel (slightly darker edge)
+// Geometry for the bezel (4 spikes: up/right/down/left)
+const tip   = k * 1.55;   // spike length
+const shoulder = k * 1.05; // where spikes widen into the bezel
+const body  = k * 1.08;   // main body radius
+const inner = k * 0.78;   // inner “seat” around the button
+
+// Bezel shadow (changes slightly when pressed)
+ctx.save();
+ctx.shadowColor = 'rgba(0,0,0,0.45)';
+ctx.shadowBlur  = w * (pressed ? 0.010 : 0.018);
+ctx.shadowOffsetY = w * (pressed ? 0.002 : 0.006);
+
+// Outer bezel shape (8-point polygon: tip->shoulder->tip->shoulder...)
 ctx.beginPath();
-ctx.arc(0, 0, knobR, 0, TAU);
-ctx.fillStyle = 'rgba(243,239,230,0.88)';
+ctx.moveTo(0, -tip);
+ctx.lineTo( shoulder, -shoulder);
+ctx.lineTo( tip, 0);
+ctx.lineTo( shoulder, shoulder);
+ctx.lineTo(0, tip);
+ctx.lineTo(-shoulder, shoulder);
+ctx.lineTo(-tip, 0);
+ctx.lineTo(-shoulder, -shoulder);
+ctx.closePath();
+
+// Brass-like fill (simple gradient, looks “machined”)
+const brass = ctx.createLinearGradient(-tip, -tip, tip, tip);
+brass.addColorStop(0.00, '#6A4B16');
+brass.addColorStop(0.22, '#C8A24A');
+brass.addColorStop(0.42, '#FFF0B6');
+brass.addColorStop(0.62, '#D4A646');
+brass.addColorStop(0.82, '#8A6A22');
+brass.addColorStop(1.00, '#E7C56B');
+
+ctx.fillStyle = brass;
 ctx.fill();
 
-// Kill shadow for crisp inner detailing
+// Edge line (crisp Art Deco border)
 ctx.shadowBlur = 0;
 ctx.shadowOffsetY = 0;
-
-// Bevel ring (gives “pressable” geometry)
-ctx.beginPath();
-ctx.arc(0, 0, knobR * 0.92, 0, TAU);
-ctx.strokeStyle = 'rgba(11,11,13,0.22)';
+ctx.strokeStyle = 'rgba(0,0,0,0.28)';
 ctx.lineWidth = w * 0.006;
 ctx.stroke();
 
-// Inner face gradient (fake 3D: highlight top-left, shade bottom-right)
-const g = ctx.createRadialGradient(
-  -knobR*0.28, -knobR*0.32, knobR*0.12,
-   0,          0,          knobR*1.05
-);
-g.addColorStop(0.00, 'rgba(255,255,255,0.72)');
-g.addColorStop(0.38, 'rgba(243,239,230,0.92)');
-g.addColorStop(1.00, 'rgba(215,210,200,0.92)');
-
+// Inner step (gives the “pressed plate” look)
 ctx.beginPath();
-ctx.arc(0, 0, knobR * 0.86, 0, TAU);
-ctx.fillStyle = g;
+ctx.moveTo(0, -body);
+ctx.lineTo( inner, -inner);
+ctx.lineTo( body, 0);
+ctx.lineTo( inner, inner);
+ctx.lineTo(0, body);
+ctx.lineTo(-inner, inner);
+ctx.lineTo(-body, 0);
+ctx.lineTo(-inner, -inner);
+ctx.closePath();
+
+ctx.globalCompositeOperation = 'overlay';
+ctx.fillStyle = 'rgba(255,255,255,0.10)';
 ctx.fill();
-
-// Art Deco “step” rings (machined look)
-ctx.beginPath();
-ctx.arc(0, 0, knobR * 0.66, 0, TAU);
-ctx.strokeStyle = 'rgba(11,11,13,0.10)';
-ctx.lineWidth = w * 0.0045;
-ctx.stroke();
-
-ctx.beginPath();
-ctx.arc(0, 0, knobR * 0.46, 0, TAU);
-ctx.strokeStyle = 'rgba(11,11,13,0.12)';
-ctx.lineWidth = w * 0.004;
-ctx.stroke();
-
-// Center boss (small, crisp, slightly metallic)
-ctx.beginPath();
-ctx.arc(0, 0, knobR * 0.14, 0, TAU);
-ctx.fillStyle = 'rgba(11,11,13,0.10)';
-ctx.fill();
-
-ctx.beginPath();
-ctx.arc(0, 0, knobR * 0.14, 0, TAU);
-ctx.strokeStyle = 'rgba(243,239,230,0.30)';
-ctx.lineWidth = w * 0.003;
-ctx.stroke();
-
-// Deco indicator: tiny gold dash at the top (subtle, consistent with gold hand)
-ctx.save();
-ctx.rotate(-Math.PI/2);
-const dashW = knobR * 0.34;
-const dashH = knobR * 0.07;
-ctx.beginPath();
-if (ctx.roundRect) ctx.roundRect(-dashW/2, -knobR*0.72, dashW, dashH, dashH*0.6);
-else ctx.rect(-dashW/2, -knobR*0.72, dashW, dashH);
-ctx.fillStyle = 'rgba(208,171,76,0.78)';
-ctx.fill();
+ctx.globalCompositeOperation = 'source-over';
 ctx.restore();
+
+// Round button (2 states)
+const btnR = k * 0.64;
+
+// When pressed, the button sits “lower”
+const pressY = pressed ? (w * 0.006) : 0;
+
+// Button shadow (less when pressed)
+ctx.shadowColor = 'rgba(0,0,0,0.38)';
+ctx.shadowBlur  = w * (pressed ? 0.008 : 0.016);
+ctx.shadowOffsetY = w * (pressed ? 0.002 : 0.006);
+
+ctx.beginPath();
+ctx.arc(0, pressY, btnR, 0, TAU);
+
+// Slightly warm ivory face (matches your UI)
+const face = ctx.createRadialGradient(
+  -btnR*0.25, -btnR*0.30 + pressY, btnR*0.10,
+   0,          pressY,            btnR*1.05
+);
+face.addColorStop(0.00, 'rgba(255,255,255,0.78)');
+face.addColorStop(0.45, 'rgba(243,239,230,0.94)');
+face.addColorStop(1.00, 'rgba(210,205,195,0.95)');
+ctx.fillStyle = face;
+ctx.fill();
+
+// Button rim
+ctx.shadowBlur = 0;
+ctx.shadowOffsetY = 0;
+ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+ctx.lineWidth = w * 0.006;
+ctx.stroke();
+
+// Gold center cap (ties to your hand)
+ctx.beginPath();
+ctx.arc(0, pressY, btnR*0.28, 0, TAU);
+ctx.fillStyle = 'rgba(208,171,76,0.95)';
+ctx.fill();
+
+// Tiny highlight
+ctx.beginPath();
+ctx.arc(-btnR*0.12, pressY - btnR*0.14, btnR*0.10, 0, TAU);
+ctx.fillStyle = 'rgba(255,255,255,0.25)';
+ctx.fill();
+
+// Optional: subtle “PRESS” mark? (commented so you can decide)
+// ctx.font = `700 ${Math.round(w*0.022)}px system-ui, Arial`;
+// ctx.fillStyle = 'rgba(11,11,13,0.35)';
+// ctx.textAlign='center'; ctx.textBaseline='middle';
+// ctx.fillText('PRESS', 0, pressY + btnR*0.02);
+
+ctx.restore();
+
 
 ctx.restore();
 
