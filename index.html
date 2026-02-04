@@ -11,7 +11,7 @@
     --fg2:rgba(243,239,230,.72);
     --fg3:rgba(243,239,230,.46);
     --gold:#D0AB4C;       /* base gold (richer) */
-  } 
+  }
   html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:"Neue Einstellung", system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
   .wrap{height:100%;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;}
   .shell{position:relative;width:min(620px,92vw);aspect-ratio:1/1;user-select:none;-webkit-user-select:none;touch-action:none;}
@@ -1363,58 +1363,68 @@ setChimeMode(chimeMode);
   let wheelActiveUntil = 0;  // timestamp (ms) to keep hint state "winding"
   let wheelPrecisionUntil = 0; // when > now, trackpad mode (precise, no momentum)
 
-  function onWheel(e){
-    // Trackpad: precise, no momentum.
-    // Mouse wheel / coarse scrolling: can feel slightly physical.
-    e.preventDefault();
+ function onWheel(e){
+  e.preventDefault();
 
-    const now = performance.now();
+  const now = performance.now();
 
-    // Heuristic: trackpads emit many small deltas (deltaMode 0, small magnitude).
-    const isTrackpad = (e.deltaMode === 0 && Math.abs(e.deltaY) < 12);
+  // Heuristic: trackpads emit many small deltas (deltaMode 0, small magnitude).
+  const isTrackpad = (e.deltaMode === 0 && Math.abs(e.deltaY) < 12);
 
-    const modeScale = (e.deltaMode === 1) ? 16 : (e.deltaMode === 2 ? 240 : 1);
-    const dy = e.deltaY * modeScale;
+  const modeScale = (e.deltaMode === 1) ? 16 : (e.deltaMode === 2 ? 240 : 1);
+  const dy = e.deltaY * modeScale;
 
-    // Shift = fine control.
-    const sensitivity = e.shiftKey ? 0.0045 : 0.010; // minutes per pixel
-    const deltaMin = (-dy) * sensitivity;
+  // Shift = fine control (keep your feel)
+  const sensitivity = e.shiftKey ? 0.0045 : 0.010; // minutes per pixel
+  const rawDeltaMin = (-dy) * sensitivity;
 
-    if (isTrackpad){
-      // ✅ Precise: apply directly and kill any stored momentum.
-      wheelImpulse = 0;
-      dialTargetVel = 0;
-      dialVel *= 0.15;
+  const step = 0.5; // 0.5 min = 30 seconds
 
-      dialArcMinTargetRaw = clamp(dialArcMinTargetRaw + rawDeltaMin, 0, MAX_MIN);
+  if (isTrackpad){
+    // ✅ Precise: apply directly and kill any stored momentum.
+    wheelImpulse = 0;
+    dialTargetVel = 0;
+    dialVel *= 0.15;
 
-// snap the visible target to 30-second steps
-const step = 0.5; // minutes
-dialArcMinTarget = clamp(Math.round(dialArcMinTargetRaw / step) * step, 0, MAX_MIN);
-      dialArcMinTargetRaw = dialArcMinTarget;
+    // initialize raw target from current snapped target (prevents first-scroll jump)
+    dialArcMinTargetRaw = dialArcMinTargetRaw || dialArcMinTarget;
 
-      wheelActiveUntil = now + 140;
-      wheelPrecisionUntil = now + 320;
+    // accumulate smoothly
+    dialArcMinTargetRaw = clamp(dialArcMinTargetRaw + rawDeltaMin, 0, MAX_MIN);
 
-      commitPending = true;
-      commitDeadline = now + 260;
-      autoStartPending = !running;
-    } else {
-      // ✅ Coarse: smooth a bit like a physical wheel.
-      wheelImpulse += deltaMin;
-      wheelActiveUntil = now + 220;
+    // snap visible target to 30-second steps
+    dialArcMinTarget = clamp(Math.round(dialArcMinTargetRaw / step) * step, 0, MAX_MIN);
 
-      const immediate = wheelImpulse * 0.35;
-      dialArcMinTarget = clamp(dialArcMinTarget + immediate, 0, MAX_MIN);
-      wheelImpulse -= immediate;
+    wheelActiveUntil = now + 140;
+    wheelPrecisionUntil = now + 320;
 
-      commitPending = true;
-      commitDeadline = now + 520;
-      autoStartPending = !running;
-    }
+    commitPending = true;
+    commitDeadline = now + 260;
+    autoStartPending = !running;
 
-    setHint();
+  } else {
+    // ✅ Coarse: keep your physical wheel impulse feel, but snap the target
+    wheelImpulse += rawDeltaMin;
+    wheelActiveUntil = now + 220;
+
+    const immediate = wheelImpulse * 0.35;
+
+    // initialize raw target from current snapped target
+    dialArcMinTargetRaw = dialArcMinTargetRaw || dialArcMinTarget;
+
+    dialArcMinTargetRaw = clamp(dialArcMinTargetRaw + immediate, 0, MAX_MIN);
+    dialArcMinTarget = clamp(Math.round(dialArcMinTargetRaw / step) * step, 0, MAX_MIN);
+
+    wheelImpulse -= immediate;
+
+    commitPending = true;
+    commitDeadline = now + 520;
+    autoStartPending = !running;
   }
+
+  setHint();
+}
+
 
   canvas.addEventListener('wheel', onWheel, { passive: false });
 
