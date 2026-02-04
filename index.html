@@ -1507,7 +1507,7 @@ window.addEventListener('blur', () => { knobDown = false; });
 
   function drawDial(remMin, isActive){
     // Keep hint positioned relative to the knob (below center) regardless of canvas size.
-    const knobR_forHint = canvas.width * 0.105;
+    const knobR_forHint = canvas.width * 0.055;
     shell.style.setProperty('--hintY', knobR_forHint + 'px');
 
     const w=canvas.width,h=canvas.height;
@@ -1524,7 +1524,10 @@ window.addEventListener('blur', () => { knobDown = false; });
     // The ring stroke is centered on outerR. Keep gold just inside the inner edge of that stroke.
     const goldOuterR = outerR - (ringStroke*0.5) - (w*0.0010);
     const goldInnerR = innerR;                    // open center remains clean
-    const knobR=w*0.105;
+    const knobR=w*0.055;
+    const k = knobR;
+const tip = k * 1.10;      // diamond size (small)
+const btnR = k * 0.52;     // button smaller than bezel
 
     // boundary
     ctx.beginPath();
@@ -1709,16 +1712,12 @@ ctx.shadowColor = 'rgba(0,0,0,0.45)';
 ctx.shadowBlur  = w * (pressed ? 0.010 : 0.018);
 ctx.shadowOffsetY = w * (pressed ? 0.002 : 0.006);
 
-// Outer bezel shape (8-point polygon: tip->shoulder->tip->shoulder...)
+// Outer bezel shape (4-point diamond: up/right/down/left)
 ctx.beginPath();
-ctx.moveTo(0, -tip);
-ctx.lineTo( shoulder, -shoulder);
-ctx.lineTo( tip, 0);
-ctx.lineTo( shoulder, shoulder);
-ctx.lineTo(0, tip);
-ctx.lineTo(-shoulder, shoulder);
-ctx.lineTo(-tip, 0);
-ctx.lineTo(-shoulder, -shoulder);
+ctx.moveTo(0, -tip);   // up
+ctx.lineTo(tip, 0);    // right
+ctx.lineTo(0, tip);    // down
+ctx.lineTo(-tip, 0);   // left
 ctx.closePath();
 
 // Brass-like fill (simple gradient, looks “machined”)
