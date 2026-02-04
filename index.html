@@ -410,7 +410,9 @@ async function ensureBirdBuffersLoaded(){
   }
 
   function decoChimeStrike(variant=0){
-    if (!audioOn || !audioCtx) return;
+    if (!audioCtx) return;
+
+
     const t = audioCtx.currentTime;
 
     // TRUE mechanical feel = mechanism noises + chime bars.
@@ -555,7 +557,8 @@ async function ensureBirdBuffersLoaded(){
   // - Generates a slightly different phrase each time (avoids obvious repetition)
   let lastMelodySig = '';
   function melodicChimeMotif(){
-    if (!audioOn || !audioCtx) return;
+    if (!audioCtx) return;
+
     const t = audioCtx.currentTime;
 
     // A tasteful pitch set (close intervals, no pop-song hooks)
@@ -745,16 +748,48 @@ if (birdBuffers[0] && birdBuffers[1]){
     if (Math.random() < 0.40) birdChirp(t+0.44 + Math.random()*0.12, base*1.06);
   }
 
-  function playSelectedAlarmMotif(variant){
-    if (chimeMode === 0) decoChimeStrike(variant);
-    else if (chimeMode === 1) melodicChimeMotif();
-    else birdMorningMotif();
+ function decoBeepMotif(variant){
+  // short, tasteful mechanical repeating “beep” (double strike)
+  // (uses your existing premium chime strike but cropped by rhythm)
+  decoChimeStrike(variant);
+}
+
+function alarmBellMotif(variant){
+  // aggressive, wake-up alarm: metallic “bell clusters”, loud + annoying
+  if (!audioCtx || !bus) return;
+  const t = audioCtx.currentTime + 0.01;
+
+  const freqs = [740, 880, 660, 990];
+  for (let i=0;i<3;i++){
+    const at = t + i*0.085;
+
+    const o = audioCtx.createOscillator();
+    o.type = 'square';
+    o.frequency.setValueAtTime(freqs[(i + variant) % freqs.length], at);
+
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.00001, at);
+    g.gain.exponentialRampToValueAtTime(ALARM_VOL*0.95, at+0.006);
+    g.gain.exponentialRampToValueAtTime(0.00001, at+0.20);
+
+    o.connect(g).connect(bus);
+    o.start(at);
+    o.stop(at+0.22);
   }
+}
 
-  function startAlarm(){
-  if (!audioOn) return;
+function playSelectedAlarmMotif(variant){
+  if (chimeMode === 1) return decoBeepMotif(variant);   // BEEP
+  if (chimeMode === 2) return alarmBellMotif(variant);  // ALARM
+  if (chimeMode === 3) return melodicChimeMotif();      // CHIME (your luxury phrase)
+}
 
-  // For non-bird modes you still use WebAudio chain
+
+function startAlarm(){
+  // NONE = no finish sound
+  if (chimeMode === 0) return;
+
+  // alarms should not depend on ticking mute
   ensureAudio();
   stopTicking();
   stopAlarm();
@@ -762,8 +797,8 @@ if (birdBuffers[0] && birdBuffers[1]){
   alarmActive = true;
   setHint();
 
-  // ✅ Bird mode = play ONE mp3 continuously for 2 minutes, nothing else
-  if (chimeMode === 2){
+  // BIRDS (mode 4) = play ONE mp3 continuously for 2 minutes
+  if (chimeMode === 4){
     ensureBirdBuffersLoaded();
 
     const a = birdAudios[birdChosen];
@@ -774,12 +809,13 @@ if (birdBuffers[0] && birdBuffers[1]){
       a.play().catch(()=>{});
     }catch(e){}
 
-    // stop after 2 minutes (or earlier if user presses knob which calls stopAlarm())
     birdStopTimeout = setTimeout(() => stopAlarm(), 120_000);
     return;
   }
 
-  // === Original behavior for MECH / MELODY ===
+  // BEEP / ALARM / CHIME (WebAudio motifs)
+  try{ audioCtx.resume(); }catch(e){}
+
   let v = 0;
   const motif = () => {
     if (!alarmActive) return;
@@ -788,11 +824,15 @@ if (birdBuffers[0] && birdBuffers[1]){
 
   motif();
 
-  const intervalMs = 2400 + (Math.random()*220 - 110);
-  alarmInterval = setInterval(motif, intervalMs);
+  let intervalMs = 2200;            // CHIME default (luxury, slower)
+  if (chimeMode === 1) intervalMs = 900;   // BEEP repetitive
+  if (chimeMode === 2) intervalMs = 650;   // ALARM very aggressive
+  intervalMs += (Math.random()*160 - 80);
 
+  alarmInterval = setInterval(motif, intervalMs);
   alarmStopTimeout = setTimeout(()=> stopAlarm(), 60_000);
 }
+
 
 
   function startTicking(){
@@ -851,12 +891,11 @@ function onTimerFinished(){
 
   stopFinishWatch();
   stopTicking();
+  
+ensureAudio();
+try{ audioCtx.resume(); }catch(e){}
+startAlarm();
 
-  if (audioOn){
-    ensureAudio();
-    try{ audioCtx.resume(); }catch(e){}
-    startAlarm();
-  }
 
   setHint();
 }
