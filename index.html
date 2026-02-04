@@ -1689,35 +1689,85 @@ setChimeMode(chimeMode);
     }
     ctx.restore();
 
-    // knob
-    ctx.save();
-    ctx.translate(cx,cy);
-    ctx.beginPath();
-    ctx.arc(0,0,knobR,0,TAU);
-    // Knob: off-white (so it reads as a control)
-    ctx.fillStyle='rgba(243,239,230,0.90)';
-    ctx.fill();
-    ctx.strokeStyle='rgba(11,11,13,0.26)';
-    ctx.lineWidth=w*0.008;
-    ctx.stroke();
+// knob (Art Deco push button)
+ctx.save();
+ctx.translate(cx, cy);
 
-    // notch
-    const nx=knobR*0.65, ny=-knobR*0.08, nw=knobR*0.65, nh=knobR*0.16, nr2=knobR*0.08;
-    ctx.beginPath();
-    ctx.moveTo(nx+nr2, ny);
-    ctx.arcTo(nx+nw, ny, nx+nw, ny+nh, nr2);
-    ctx.arcTo(nx+nw, ny+nh, nx, ny+nh, nr2);
-    ctx.arcTo(nx, ny+nh, nx, ny, nr2);
-    ctx.arcTo(nx, ny, nx+nw, ny, nr2);
-    ctx.closePath();
-    ctx.fillStyle='rgba(11,11,13,0.14)';
-    ctx.fill();
+// Subtle drop shadow so it feels raised/pushable
+ctx.shadowColor = 'rgba(0,0,0,0.35)';
+ctx.shadowBlur  = w * 0.018;
+ctx.shadowOffsetY = w * 0.006;
 
-    ctx.beginPath();
-    ctx.arc(0,0,knobR*0.18,0,TAU);
-    ctx.fillStyle='rgba(11,11,13,0.10)';
-    ctx.fill();
-    ctx.restore();
+// Outer bezel (slightly darker edge)
+ctx.beginPath();
+ctx.arc(0, 0, knobR, 0, TAU);
+ctx.fillStyle = 'rgba(243,239,230,0.88)';
+ctx.fill();
+
+// Kill shadow for crisp inner detailing
+ctx.shadowBlur = 0;
+ctx.shadowOffsetY = 0;
+
+// Bevel ring (gives “pressable” geometry)
+ctx.beginPath();
+ctx.arc(0, 0, knobR * 0.92, 0, TAU);
+ctx.strokeStyle = 'rgba(11,11,13,0.22)';
+ctx.lineWidth = w * 0.006;
+ctx.stroke();
+
+// Inner face gradient (fake 3D: highlight top-left, shade bottom-right)
+const g = ctx.createRadialGradient(
+  -knobR*0.28, -knobR*0.32, knobR*0.12,
+   0,          0,          knobR*1.05
+);
+g.addColorStop(0.00, 'rgba(255,255,255,0.72)');
+g.addColorStop(0.38, 'rgba(243,239,230,0.92)');
+g.addColorStop(1.00, 'rgba(215,210,200,0.92)');
+
+ctx.beginPath();
+ctx.arc(0, 0, knobR * 0.86, 0, TAU);
+ctx.fillStyle = g;
+ctx.fill();
+
+// Art Deco “step” rings (machined look)
+ctx.beginPath();
+ctx.arc(0, 0, knobR * 0.66, 0, TAU);
+ctx.strokeStyle = 'rgba(11,11,13,0.10)';
+ctx.lineWidth = w * 0.0045;
+ctx.stroke();
+
+ctx.beginPath();
+ctx.arc(0, 0, knobR * 0.46, 0, TAU);
+ctx.strokeStyle = 'rgba(11,11,13,0.12)';
+ctx.lineWidth = w * 0.004;
+ctx.stroke();
+
+// Center boss (small, crisp, slightly metallic)
+ctx.beginPath();
+ctx.arc(0, 0, knobR * 0.14, 0, TAU);
+ctx.fillStyle = 'rgba(11,11,13,0.10)';
+ctx.fill();
+
+ctx.beginPath();
+ctx.arc(0, 0, knobR * 0.14, 0, TAU);
+ctx.strokeStyle = 'rgba(243,239,230,0.30)';
+ctx.lineWidth = w * 0.003;
+ctx.stroke();
+
+// Deco indicator: tiny gold dash at the top (subtle, consistent with gold hand)
+ctx.save();
+ctx.rotate(-Math.PI/2);
+const dashW = knobR * 0.34;
+const dashH = knobR * 0.07;
+ctx.beginPath();
+if (ctx.roundRect) ctx.roundRect(-dashW/2, -knobR*0.72, dashW, dashH, dashH*0.6);
+else ctx.rect(-dashW/2, -knobR*0.72, dashW, dashH);
+ctx.fillStyle = 'rgba(208,171,76,0.78)';
+ctx.fill();
+ctx.restore();
+
+ctx.restore();
+
 
     if (isActive){
       ctx.fillStyle='rgba(255,255,255,0.03)';
