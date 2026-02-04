@@ -824,10 +824,11 @@ function startAlarm(){
 
   motif();
 
-  let intervalMs = 2200;            // CHIME default (luxury, slower)
-  if (chimeMode === 1) intervalMs = 900;   // BEEP repetitive
-  if (chimeMode === 2) intervalMs = 650;   // ALARM very aggressive
-  intervalMs += (Math.random()*160 - 80);
+let intervalMs = 2200; // CHIME default
+if (chimeMode === 1) intervalMs = 2400; // ✅ BEEP cadence = old MECH cadence
+if (chimeMode === 2) intervalMs = 650;  // ALARM stays aggressive
+intervalMs += (Math.random()*220 - 110); // ✅ old-style jitter
+
 
   alarmInterval = setInterval(motif, intervalMs);
   alarmStopTimeout = setTimeout(()=> stopAlarm(), 60_000);
