@@ -1580,77 +1580,70 @@ setChimeMode(chimeMode);
       ctx.restore();
     }
 
-    // Art-deco hand: always visible. At 0 when unset, advances as you wind.
-    // Draw AFTER gold so it reads as the leader and shows what to drag.
-    {
-      const a = (remMin>0) ? handAng : angle0;
-      ctx.save();
-      ctx.translate(cx,cy);
-      ctx.rotate(a + Math.PI/2); // convert to "up" orientation
+// Hand (Newgate-like: sharp dauphine + slim seconds)
+{
+  const a = (remMin > 0) ? handAng : angle0;
 
-      const handLen  = outerR*0.88;
-      const handBaseY= innerR*0.76;
-      const baseW    = w*0.034;  // thicker at the knob (finger friendly)
-      const midW     = w*0.020;
-      const tipW     = w*0.010;  // taper
-      const tipY     = -handLen;
-      const midY     = -handLen*0.62;
-      const baseY    = -handBaseY;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(a + Math.PI/2); // points "up"
 
-      // Main tapered body (filled, solid gold)
-      ctx.beginPath();
-      ctx.moveTo(-baseW*0.5, baseY);
-      ctx.lineTo(-midW*0.5, midY);
-      ctx.lineTo(-tipW*0.5, tipY);
-      ctx.lineTo( tipW*0.5, tipY);
-      ctx.lineTo( midW*0.5, midY);
-      ctx.lineTo( baseW*0.5, baseY);
-      ctx.closePath();
+  const handLen   = outerR * 0.84;
+  const baseY     = -innerR * 0.34;
+  const tipY      = -handLen;
 
-      // Solid gold + gentle sheen
-      ctx.shadowColor = 'rgba(208,171,76,0.24)';
-      ctx.shadowBlur  = w*0.010;
-      ctx.fillStyle = GOLD_BASE;
-      ctx.fill();
-      ctx.shadowBlur = 0;
+  // proportions similar to the reference
+  const baseW     = w * 0.030;
+  const midW      = w * 0.018;
+  const tipW      = w * 0.006;
+  const midY      = tipY * 0.58;
 
-      // Optional subtle texture on top (keeps the nice gold effect)
-      ctx.save();
-      ctx.globalCompositeOperation = 'overlay';
-      ctx.globalAlpha = 0.55;
-      ctx.fillStyle = goldPattern || GOLD_BASE;
-      ctx.fill();
-      ctx.restore();
+  // Soft shadow for depth (reads like real metal)
+  ctx.shadowColor = 'rgba(0,0,0,0.35)';
+  ctx.shadowBlur  = w * 0.010;
+  ctx.shadowOffsetY = w * 0.004;
 
-      // Deco tip (diamond cap)
-      const capS = w*0.022;
-      ctx.beginPath();
-      ctx.moveTo(0, tipY - capS);
-      ctx.lineTo(capS*0.70, tipY);
-      ctx.lineTo(0, tipY + capS);
-      ctx.lineTo(-capS*0.70, tipY);
-      ctx.closePath();
-      ctx.fillStyle = GOLD_BASE;
-      ctx.fill();
+  // Main dauphine body (sharp, faceted)
+  ctx.beginPath();
+  ctx.moveTo(-baseW*0.5, baseY);
+  ctx.lineTo(-midW*0.5,  midY);
+  ctx.lineTo(-tipW*0.5,  tipY);
+  ctx.lineTo( tipW*0.5,  tipY);
+  ctx.lineTo( midW*0.5,  midY);
+  ctx.lineTo( baseW*0.5, baseY);
+  ctx.closePath();
 
-      // Small counterweight (deco block) near base
-      const bw = w*0.020;
-      const bh = w*0.010;
-      const by = baseY + w*0.010;
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(-bw*0.5, by, bw, bh, bh*0.35);
-      else ctx.rect(-bw*0.5, by, bw, bh);
-      ctx.fillStyle = 'rgba(208,171,76,0.75)';
-      ctx.fill();
+  ctx.fillStyle = GOLD_BASE;
+  ctx.fill();
 
-      // Center boss dot
-      ctx.beginPath();
-      ctx.arc(0, 0, w*0.0065, 0, TAU);
-      ctx.fillStyle = 'rgba(208,171,76,0.85)';
-      ctx.fill();
+  // Facet highlight (one side brighter like polished metal)
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = 0.28;
+  ctx.beginPath();
+  ctx.moveTo(0, baseY);
+  ctx.lineTo(0, tipY);
+  ctx.lineTo(-midW*0.52, midY);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,1)';
+  ctx.fill();
+  ctx.restore();
 
-      ctx.restore();
-    }
+  // Slim seconds hand (very thin, understated)
+  ctx.beginPath();
+  ctx.moveTo(0, w * 0.020);
+  ctx.lineTo(0, -outerR * 0.76);
+  ctx.strokeStyle = 'rgba(208,171,76,0.75)';
+  ctx.lineWidth = w * 0.0022;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // Remove any previous deco tip/cap blocks from your old hand — this replaces them.
+
+  ctx.restore();
+}
 
     // minute dots
     ctx.save();
