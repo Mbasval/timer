@@ -1386,7 +1386,11 @@ setChimeMode(chimeMode);
       dialTargetVel = 0;
       dialVel *= 0.15;
 
-      dialArcMinTarget = clamp(dialArcMinTarget + deltaMin, 0, MAX_MIN);
+      dialArcMinTargetRaw = clamp(dialArcMinTargetRaw + rawDeltaMin, 0, MAX_MIN);
+
+// snap the visible target to 30-second steps
+const step = 0.5; // minutes
+dialArcMinTarget = clamp(Math.round(dialArcMinTargetRaw / step) * step, 0, MAX_MIN);
       dialArcMinTargetRaw = dialArcMinTarget;
 
       wheelActiveUntil = now + 140;
