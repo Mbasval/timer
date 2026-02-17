@@ -1629,7 +1629,7 @@ window.addEventListener('blur', () => { knobDown = false; });
   })();
   const goldPattern = ctx.createPattern(goldTex, 'repeat');
 
-  function drawDial(remMin, isActive){
+  function drawDial(remMin, isActive){  
     // Keep hint positioned relative to the knob (below center) regardless of canvas size.
     const knobR_forHint = canvas.width * 0.055;
     shell.style.setProperty('--hintY', knobR_forHint + 'px');
@@ -1643,8 +1643,8 @@ window.addEventListener('blur', () => { knobDown = false; });
     const outerR=w*0.43;
     const innerR=w*0.19;
 
-    const markR = w * 0.345;  // dashes a bit more inward (more air near border)
-const numR  = w * 0.378;  // numbers more inward (more air from border)
+    const markR = w * 0.335;  // dashes a bit more inward (more air near border)
+    const numR = w * 0.405;
 
     const handLen = markR;  // ✅ define once, before goldOuterR uses it
 
@@ -1660,8 +1660,8 @@ const numR  = w * 0.378;  // numbers more inward (more air from border)
     // boundary
     ctx.beginPath();
     ctx.arc(cx,cy,outerR,0,TAU);
-    ctx.strokeStyle='rgba(243,239,230,0.16)';
-    ctx.lineWidth=w*0.009;
+    ctx.strokeStyle='rgba(243,239,230,0.09)';
+    ctx.lineWidth=w*0.006;
     ctx.stroke();
 
     // gold ring sector (remaining time) — starts COUNTER-CLOCKWISE from the top
@@ -1825,7 +1825,7 @@ ctx.restore();
     ctx.textAlign='center';
     ctx.textBaseline='middle';
     ctx.font=`${Math.round(w*0.050)}px "Neue Einstellung", "Helvetica Neue", Helvetica, Arial, sans-serif`;
-    const nr = markR + w*0.018;  // more breathing room from dashes
+    const nr = numR;
     for (const n of marks){
       const a=angle0+(n.m/60)*TAU; // clockwise in screen coords
       ctx.fillText(n.t, Math.cos(a)*nr, Math.sin(a)*nr);
