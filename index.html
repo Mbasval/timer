@@ -1661,7 +1661,7 @@ const numR  = w * 0.378;  // numbers more inward (more air from border)
     ctx.beginPath();
     ctx.arc(cx,cy,outerR,0,TAU);
     ctx.strokeStyle='rgba(243,239,230,0.16)';
-    ctx.lineWidth=w*0.012;
+    ctx.lineWidth=w*0.009;
     ctx.stroke();
 
     // gold ring sector (remaining time) — starts COUNTER-CLOCKWISE from the top
@@ -1773,8 +1773,8 @@ const numR  = w * 0.378;  // numbers more inward (more air from border)
   ctx.beginPath();
   ctx.moveTo(0, w * 0.020);
   ctx.lineTo(0, -outerR * 0.76);
-  ctx.strokeStyle = 'rgba(243,239,230,0.14)';  // softer
-  ctx.lineWidth = w*0.009;                      // thinner
+  ctx.strokeStyle = 'rgba(243,239,230,0.10)'; // softer
+  ctx.lineWidth = w*0.00016;                      // thinner
   ctx.lineCap = 'round';
   ctx.stroke();
 
@@ -1825,7 +1825,7 @@ ctx.restore();
     ctx.textAlign='center';
     ctx.textBaseline='middle';
     ctx.font=`${Math.round(w*0.050)}px "Neue Einstellung", "Helvetica Neue", Helvetica, Arial, sans-serif`;
-    const nr = markR + w*0.030;   // more breathing room from dashes
+    const nr = markR + w*0.018;  // more breathing room from dashes
     for (const n of marks){
       const a=angle0+(n.m/60)*TAU; // clockwise in screen coords
       ctx.fillText(n.t, Math.cos(a)*nr, Math.sin(a)*nr);
