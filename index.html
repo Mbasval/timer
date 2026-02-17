@@ -1643,8 +1643,8 @@ window.addEventListener('blur', () => { knobDown = false; });
     const outerR=w*0.43;
     const innerR=w*0.19;
 
-    const markR = w * 0.355;  // where the dashes live
-    const numR  = w * 0.395;   // ✅ more separation from dashes
+    const markR = w * 0.345;  // dashes a bit more inward (more air near border)
+const numR  = w * 0.378;  // numbers more inward (more air from border)
 
     const handLen = markR;  // ✅ define once, before goldOuterR uses it
 
@@ -1773,8 +1773,8 @@ window.addEventListener('blur', () => { knobDown = false; });
   ctx.beginPath();
   ctx.moveTo(0, w * 0.020);
   ctx.lineTo(0, -outerR * 0.76);
-  ctx.strokeStyle = 'rgba(208,171,76,0.75)';
-  ctx.lineWidth = w * 0.0022;
+  ctx.strokeStyle = 'rgba(243,239,230,0.14)';  // softer
+  ctx.lineWidth = w*0.009;                      // thinner
   ctx.lineCap = 'round';
   ctx.stroke();
 
