@@ -1644,12 +1644,12 @@ window.addEventListener('blur', () => { knobDown = false; });
     const innerR=w*0.19;
 
     const markR = w * 0.355;  // where the dashes live
-    const numR  = w * 0.372;  // numbers closer to marks (and farther from border)
+    const numR  = w * 0.395;   // ✅ more separation from dashes
 
     // Gold should TOUCH the ring but never surpass the ring stroke.
     const ringStroke = w*0.012;
     // The ring stroke is centered on outerR. Keep gold just inside the inner edge of that stroke.
-    const goldOuterR = outerR - (ringStroke*0.5) - (w*0.0010);
+    const goldOuterR = handLen; // gold stops exactly at the hand tip
     const goldInnerR = innerR;                    // open center remains clean
     const knobR=w*0.055;
     
@@ -1823,7 +1823,7 @@ ctx.restore();
     ctx.textAlign='center';
     ctx.textBaseline='middle';
     ctx.font=`${Math.round(w*0.050)}px "Neue Einstellung", "Helvetica Neue", Helvetica, Arial, sans-serif`;
-    const nr = numR;
+    const nr = markR + w*0.030;   // more breathing room from dashes
     for (const n of marks){
       const a=angle0+(n.m/60)*TAU; // clockwise in screen coords
       ctx.fillText(n.t, Math.cos(a)*nr, Math.sin(a)*nr);
