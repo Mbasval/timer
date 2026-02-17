@@ -98,26 +98,40 @@
 
 
 @media (max-width: 640px){
-  .chimeSwitch{
-    width: 94vw;
-  }
-  .mini{
-     flex-direction:column;
-    gap:10px;
-    width: min(520px, 92%);
-  }
-  #chimeSel{ width: 94vw; min-width: 0; }
+
+  /* overall stacking: clock first, brand second */
   .wrap{
     display:flex;
     flex-direction:column;
   }
-
   .shell{ order: 1; }
   .brand{
-    order: 2;              /* ✅ brand below clock */
+    order: 2;
     position: static;
     margin: 14px auto 0;
     max-width: 92vw;
+  }
+
+  /* controls: buttons on top row, switch below, centered */
+  .mini{
+    width:min(520px, 92%);
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "sound pip"
+      "switch switch";
+    row-gap:10px;
+    column-gap:12px;
+  }
+
+  #soundBtn{ grid-area:sound; justify-self:end; }
+  #pipBtn{ grid-area:pip; justify-self:start; }
+
+  #chimeSel{
+    grid-area:switch;
+    width:94vw;
+    min-width:0;
+    justify-self:center;
   }
 }
 
