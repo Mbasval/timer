@@ -1644,7 +1644,7 @@ window.addEventListener('blur', () => { knobDown = false; });
     const innerR=w*0.19;
 
     const markR = w * 0.335;  // dashes a bit more inward (more air near border)
-    const numR = w * 0.405;
+   
 
     const handLen = markR;  // ✅ define once, before goldOuterR uses it
 
@@ -1825,7 +1825,8 @@ ctx.restore();
     ctx.textAlign='center';
     ctx.textBaseline='middle';
     ctx.font=`${Math.round(w*0.050)}px "Neue Einstellung", "Helvetica Neue", Helvetica, Arial, sans-serif`;
-    const nr = numR;
+    const nr = markR + w*0.040;
+
     for (const n of marks){
       const a=angle0+(n.m/60)*TAU; // clockwise in screen coords
       ctx.fillText(n.t, Math.cos(a)*nr, Math.sin(a)*nr);
