@@ -61,13 +61,21 @@
   .brand .sub{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--fg2);line-height:1.2;} 
   .brand .prop{font-size:12px;letter-spacing:.02em;color:var(--fg3);line-height:1.25;max-width:36ch;}
   .mini{
-  display:flex;
-  flex-direction:row;
-  align-items:center;
-  justify-content:center;
-  gap:12px;
-  width:min(560px, 92%);
+  width:min(760px, 92%);
   margin: 18px auto 0;
+
+  display:grid;
+  grid-template-columns: 44px 1fr 44px;  /* left btn | centered switch | right btn */
+  align-items:center;
+  column-gap:12px;
+}
+
+#soundBtn{ justify-self:end; } /* snug to the switch */
+#pipBtn{ justify-self:start; } /* snug to the switch */
+
+#chimeSel{
+  justify-self:center;
+  width:min(560px, 100%);
 }
 
 .miniBtns{
@@ -76,7 +84,7 @@
   align-items:center;
 }
 
-#chimeSel{ flex: 1 1 auto; min-width: 260px; }
+
 
 
 .wrap{
@@ -199,22 +207,21 @@
   <div class="shell" id="shell" aria-label="Analog timer">
     <canvas id="c" width="900" height="900"></canvas>
 
-    <div class="mini">
-      <div class="miniBtns">
-        <button class="btn" id="soundBtn" title="Toggle ticking">🔇</button>
-        <button class="btn" id="pipBtn" title="Mini window (if supported)">⧉</button>
-      </div>
+<div class="mini">
+  <button class="btn" id="soundBtn" title="Toggle ticking">🔇</button>
 
+  <div class="chimeSwitch" id="chimeSel" title="Finish sound" aria-label="Finish sound">
+    <div class="thumb" id="chimeThumb" aria-hidden="true"></div>
+    <div class="opt sel" data-i="0">NONE</div>
+    <div class="opt" data-i="1">BEEP</div>
+    <div class="opt" data-i="2">ALARM</div>
+    <div class="opt" data-i="3">CHIME</div>
+    <div class="opt" data-i="4">BIRDS</div>
+  </div>
 
-      <div class="chimeSwitch" id="chimeSel" title="Finish sound" aria-label="Finish sound">
-        <div class="thumb" id="chimeThumb" aria-hidden="true"></div>
-        <div class="opt sel" data-i="0">NONE</div>
-        <div class="opt" data-i="1">BEEP</div>
-        <div class="opt" data-i="2">ALARM</div>
-        <div class="opt" data-i="3">CHIME</div>
-        <div class="opt" data-i="4">BIRDS</div>
-      </div>
-    </div>
+  <button class="btn" id="pipBtn" title="Mini window (if supported)">⧉</button>
+</div>
+
 
     <div class="hint" id="hint">Drag dial hand to set the timer, release to start</div>
   </div>
