@@ -61,28 +61,22 @@
   .brand .sub{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--fg2);line-height:1.2;} 
   .brand .prop{font-size:12px;letter-spacing:.02em;color:var(--fg3);line-height:1.25;max-width:36ch;}
   .mini{
-  position: relative;       /* was absolute */
-  left: auto;
-  bottom: auto;
-  transform: none;
-
   display:flex;
-  flex-direction:column;
-  gap:12px;
+  flex-direction:row;
   align-items:center;
   justify-content:center;
-
-  width:min(520px, 92%);
-  margin: 18px auto 0;      /* spacing below the dial */
-  padding-bottom: 10px;     /* breathing room */
+  gap:12px;
+  width:min(560px, 92%);
+  margin: 18px auto 0;
 }
 
 .miniBtns{
-  display:flex;
+    display:flex;
   gap:10px;
   align-items:center;
-  justify-content:center;
 }
+
+#chimeSel{ flex: 1 1 auto; min-width: 260px; }
 
 
 .wrap{
@@ -100,9 +94,11 @@
     width: 94vw;
   }
   .mini{
-    margin-top: 18px;
-    padding-bottom: 10px;  /* ✅ bottom breathing room */
+     flex-direction:column;
+    gap:10px;
+    width: min(520px, 92%);
   }
+  #chimeSel{ width: 94vw; min-width: 0; }
   .wrap{
     display:flex;
     flex-direction:column;
