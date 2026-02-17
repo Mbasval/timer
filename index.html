@@ -28,23 +28,75 @@
 }
 
   canvas{width:100%;height:100%;aspect-ratio:1/1;display:block;}
-  .brand{position:absolute;left:12px;top:10px;pointer-events:none;display:flex;flex-direction:column;gap:4px;max-width:min(360px,60%);} 
+  .brand{
+  position: fixed;
+  left: 24px;
+  top: 22px;
+  pointer-events:none;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  max-width:min(420px, 50vw);
+  z-index:5;
+}
+@media (max-width: 640px){
+  .brand{
+    position: static;         /* stops being pinned to the corner */
+    max-width: 92vw;
+    margin: 14px auto 0;      /* center it and push it below the clock */
+    text-align: left;
+    pointer-events:none;
+  }
+}
+
   .brand .title{font-size:22px;letter-spacing:.26em;text-transform:uppercase;color:var(--fg);line-height:1;} 
   .brand .sub{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--fg2);line-height:1.2;} 
   .brand .prop{font-size:12px;letter-spacing:.02em;color:var(--fg3);line-height:1.25;max-width:36ch;}
   .mini{
-  position:relative;          /* no absolute pinning */
-  left:auto;
-  bottom:auto;
-  transform:none;
+  position:absolute;
+  left:50%;
+  bottom:14px;
+  transform:translateX(-50%);
+  display:flex;
+  flex-direction:column;   /* stack rows */
+  gap:10px;
+  align-items:center;
+  justify-content:center;
+  width:min(520px, 92%);
+}
+.miniBtns{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:center;
+}
+.btn{
+  width:clamp(34px, 7vw, 40px);
+  height:clamp(34px, 7vw, 40px);
+}
 
+.chimeSwitch{
+  width: min(560px, 100%);
+  height: 36px;
+}
+
+.wrap{
+  min-height:100%;
   display:flex;
   align-items:center;
   justify-content:center;
-
-  gap:12px;                   /* keep it elegant */
-  margin-top:22px;            /* ← tasteful separation from the clock */
+  padding:24px;
+  box-sizing:border-box;
 }
+
+@media (max-width: 640px){
+  .wrap{
+    flex-direction:column;
+    gap: 10px;
+  }
+}
+
+
 
   .btn{width:34px;height:34px;border-radius:999px;border:1px solid rgba(243,239,230,.18);background:rgba(11,11,13,.72);color:var(--fg);display:grid;place-items:center;cursor:pointer;font-size:14px;padding:0;line-height:1;backdrop-filter: blur(6px);}
   .btn:hover{border-color:rgba(243,239,230,.32);} .btn:active{transform:scale(.98);} 
@@ -92,32 +144,37 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="shell" id="shell" aria-label="Analog timer">
-      <div class="brand" aria-hidden="true">
-        <div class="title">GILT</div>
-        <div class="sub">Time well spent.</div>
-        <br>
-        <div class="prop">A simple timer that helps you with productivity and displays the importance of time.</div>
-      </div>
-      <canvas id="c" width="900" height="900"></canvas>
-     <div class="mini">
-  <button class="btn" id="soundBtn" title="Toggle ticking">🔇</button>
-
-  <div class="chimeSwitch" id="chimeSel" title="Finish sound" aria-label="Finish sound">
-    <div class="thumb" id="chimeThumb" aria-hidden="true"></div>
-    <div class="opt sel" data-i="0">NONE</div>
-    <div class="opt" data-i="1">BEEP</div>
-    <div class="opt" data-i="2">ALARM</div>
-    <div class="opt" data-i="3">CHIME</div>
-    <div class="opt" data-i="4">BIRDS</div>
+  <div class="brand" aria-hidden="true">
+    <div class="title">GILT</div>
+    <div class="sub">Time well spent.</div>
+    <br>
+    <div class="prop">A simple timer that helps you with productivity and displays the importance of time.</div>
   </div>
 
-  <button class="btn" id="pipBtn" title="Mini window (if supported)">⧉</button>
+  <div class="shell" id="shell" aria-label="Analog timer">
+    <canvas id="c" width="900" height="900"></canvas>
+
+    <div class="mini">
+      <div class="miniBtns">
+        <button class="btn" id="soundBtn" title="Toggle ticking">🔇</button>
+        <button class="btn" id="pipBtn" title="Mini window (if supported)">⧉</button>
+      </div>
+
+
+      <div class="chimeSwitch" id="chimeSel" title="Finish sound" aria-label="Finish sound">
+        <div class="thumb" id="chimeThumb" aria-hidden="true"></div>
+        <div class="opt sel" data-i="0">NONE</div>
+        <div class="opt" data-i="1">BEEP</div>
+        <div class="opt" data-i="2">ALARM</div>
+        <div class="opt" data-i="3">CHIME</div>
+        <div class="opt" data-i="4">BIRDS</div>
+      </div>
+    </div>
+
+    <div class="hint" id="hint">Drag dial hand to set the timer, release to start</div>
+  </div>
 </div>
 
-      <div class="hint" id="hint">Drag dial hand to set the timer, release to start</div>
-    </div>
-  </div>
 
 <script>
 (() => {
