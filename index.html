@@ -1643,6 +1643,9 @@ window.addEventListener('blur', () => { knobDown = false; });
     const outerR=w*0.43;
     const innerR=w*0.19;
 
+    const markR = w * 0.355;  // where the dashes live
+    const numR  = w * 0.372;  // numbers closer to marks (and farther from border)
+
     // Gold should TOUCH the ring but never surpass the ring stroke.
     const ringStroke = w*0.012;
     // The ring stroke is centered on outerR. Keep gold just inside the inner edge of that stroke.
@@ -1721,7 +1724,7 @@ window.addEventListener('blur', () => { knobDown = false; });
   ctx.translate(cx, cy);
   ctx.rotate(a + Math.PI/2); // points "up"
 
-  const handLen   = outerR * 0.84;
+  const handLen   = markR;  // NEW: tip ends exactly at the marks
   const baseY     = -innerR * 0.34;
   const tipY      = -handLen;
 
@@ -1778,21 +1781,33 @@ window.addEventListener('blur', () => { knobDown = false; });
   ctx.restore();
 }
 
-    // minute dots
-    ctx.save();
-    ctx.translate(cx,cy);
-    const dotR=w*0.335;
-    for (let m=0;m<60;m++){
-      const a=angle0+(m/60)*TAU;
-      const x=Math.cos(a)*dotR, y=Math.sin(a)*dotR;
-      const big=(m%5===0);
-      const rr=big ? w*0.0052 : w*0.0032;
-      ctx.beginPath();
-      ctx.arc(x,y,rr,0,TAU);
-      ctx.fillStyle=big ? 'rgba(243,239,230,0.62)' : 'rgba(243,239,230,0.38)';
-      ctx.fill();
-    }
-    ctx.restore();
+    // minute marks — subtle elegant dashes
+ctx.save();
+ctx.translate(cx,cy);
+
+for (let m=0; m<60; m++){
+  const a = angle0 + (m/60)*TAU;
+
+  const big = (m % 5 === 0);
+  const dashLen = big ? w*0.014 : w*0.008;     // length of dash
+  const dashW   = big ? w*0.0022 : w*0.0016;   // stroke thickness
+
+  // radial dash (points toward center)
+  const r2 = markR;           // outer end
+  const r1 = markR - dashLen; // inner end
+
+  ctx.beginPath();
+  ctx.moveTo(Math.cos(a)*r1, Math.sin(a)*r1);
+  ctx.lineTo(Math.cos(a)*r2, Math.sin(a)*r2);
+
+  ctx.strokeStyle = big ? 'rgba(243,239,230,0.58)' : 'rgba(243,239,230,0.34)';
+  ctx.lineWidth = dashW;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+}
+
+ctx.restore();
+
 
     // numerals (reverse scale: 55 sits where 5 normally is; runs clockwise)
     const marks = [];
@@ -1808,7 +1823,7 @@ window.addEventListener('blur', () => { knobDown = false; });
     ctx.textAlign='center';
     ctx.textBaseline='middle';
     ctx.font=`${Math.round(w*0.050)}px "Neue Einstellung", "Helvetica Neue", Helvetica, Arial, sans-serif`;
-    const nr=w*0.395;
+    const nr = numR;
     for (const n of marks){
       const a=angle0+(n.m/60)*TAU; // clockwise in screen coords
       ctx.fillText(n.t, Math.cos(a)*nr, Math.sin(a)*nr);
