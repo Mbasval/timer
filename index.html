@@ -11,6 +11,7 @@
     --fg2:rgba(243,239,230,.72);
     --fg3:rgba(243,239,230,.46);
     --gold:#D0AB4C;       /* base gold (richer) */
+    --btnD: clamp(34px, 7vw, 40px); /* 1 source of truth for button diameter */
   }
   html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:"Neue Einstellung", system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
   
@@ -139,9 +140,10 @@
 
 
 
-  .btn{
-  width:clamp(34px, 7vw, 40px);
-  height:clamp(34px, 7vw, 40px);
+/* keep your btn, but tie it to --btnD */
+.btn{
+  width: var(--btnD);
+  height: var(--btnD);
   border-radius:999px;
   border:1px solid rgba(243,239,230,.18);
   background:rgba(11,11,13,.72);
@@ -156,40 +158,122 @@
 }
 
 
-  .btn:hover{border-color:rgba(243,239,230,.32);} .btn:active{transform:scale(.98);} 
+.btn:hover{ border-color:rgba(243,239,230,.32); }
+.btn:active{ transform:scale(.98); }
+.btn.on{
+  border-color: rgba(208,171,76,.55);
+  box-shadow: 0 10px 22px rgba(208,171,76,.10), inset 0 0 0 1px rgba(0,0,0,.22);
+  background: rgba(11,11,13,.78);
+}
 
- .chimeSwitch{
+
+/* center stack: short slider + external labels */
+.chimeWrap{
+  justify-self:center;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+  width:min(560px, 100%); /* label width */
+}
+
+/* SHORT travel slider like a real 5-position slide switch */
+#chimeSel.chimeSwitch{
+  width: clamp(170px, 38vw, 240px);  /* short track travel */
+  height: var(--btnD);               /* SAME height as buttons */
   position:relative;
-  width: min(560px, 100%);
-  height: 36px;
   border-radius:999px;
   border:1px solid rgba(243,239,230,.18);
   background:rgba(11,11,13,.72);
   backdrop-filter: blur(6px);
-  display:grid;
-  grid-template-columns:repeat(5,1fr);
-  align-items:center;
   overflow:hidden;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
   cursor:pointer;
 }
 
+/* thumb sized to 1/5 of the short track */
+#chimeSel .thumb{
+  position:absolute;
+  top:3px;
+  bottom:3px;
+  left:3px;
+  width: calc((100% - 6px) / 5);
+  border-radius:999px;
+  background: radial-gradient(circle at 30% 30%,
+      rgba(255,255,255,.70),
+      rgba(208,171,76,.88) 38%,
+      rgba(208,171,76,1) 72%);
+  box-shadow: 0 8px 22px rgba(208,171,76,.14), inset 0 1px 0 rgba(255,255,255,.22);
+  border:1px solid rgba(0,0,0,.22);
+  transform: translateX(0);
+  transition: transform 180ms cubic-bezier(.2,.8,.2,1);
+  will-change: transform;
+}
 
+/* subtle black notch in the middle of the thumb */
+#chimeSel .thumb::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width: 18%;
+  height: 42%;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: rgba(0,0,0,.22);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+  opacity: .75;
+}
 
-  .chimeSwitch .thumb{position:absolute;top:3px;bottom:3px;left:3px;width:calc((100% - 6px)/5);
-    border-radius:999px;
-    background:radial-gradient(circle at 30% 30%, rgba(255,255,255,.70), rgba(208,171,76,.88) 38%, rgba(208,171,76,1) 72%);
-    box-shadow:0 8px 22px rgba(208,171,76,.14), inset 0 1px 0 rgba(255,255,255,.22);
-    border:1px solid rgba(0,0,0,.22);
-    transform:translateX(0);
-    transition:transform 180ms cubic-bezier(.2,.8,.2,1);
-    will-change:transform;
+#chimeSel.dragging .thumb{ transition:none; }
+
+/* labels outside */
+.chimeLabels{
+  width: 100%;
+  display:grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items:center;
+  gap:0;
+  user-select:none;
+}
+.chimeLabels .opt{
+  text-align:center;
+  font-size:10px;
+  letter-spacing:.22em;
+  text-transform:uppercase;
+  color: rgba(243,239,230,.66);
+  cursor:pointer;
+}
+.chimeLabels .opt.sel{
+  color: rgba(243,239,230,.92);
+}
+
+@media (max-width: 640px){
+  .mini{
+    width:min(520px, 92%);
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "sound pip"
+      "switch switch";
+    row-gap:10px;
+    column-gap:12px;
   }
-  .chimeSwitch.dragging .thumb{transition:none;}
-  .chimeSwitch .opt{position:relative;z-index:1;text-align:center;font-size:10px;letter-spacing:.22em;text-transform:uppercase;
-    color:rgba(243,239,230,.66);user-select:none;pointer-events:auto;
+
+  #soundBtn{ grid-area:sound; justify-self:end; }
+  #pipBtn{ grid-area:pip; justify-self:start; }
+
+  .chimeWrap{
+    grid-area:switch;
+    width: 100%;
   }
-  .chimeSwitch .opt.sel{color:rgba(11,11,13,.88);}
+
+  /* keep short travel, but allow a touch wider on mobile */
+  #chimeSel.chimeSwitch{
+    width: clamp(180px, 64vw, 260px);
+  }
+}
+
 
   .hint{
   position:absolute;
@@ -225,17 +309,23 @@
 <div class="mini">
   <button class="btn" id="soundBtn" title="Toggle ticking">🔇</button>
 
-  <div class="chimeSwitch" id="chimeSel" title="Finish sound" aria-label="Finish sound">
-    <div class="thumb" id="chimeThumb" aria-hidden="true"></div>
-    <div class="opt sel" data-i="0">NONE</div>
-    <div class="opt" data-i="1">BEEP</div>
-    <div class="opt" data-i="2">ALARM</div>
-    <div class="opt" data-i="3">CHIME</div>
-    <div class="opt" data-i="4">BIRDS</div>
+  <div class="chimeWrap" aria-label="Finish sound">
+    <div class="chimeSwitch" id="chimeSel" title="Finish sound">
+      <div class="thumb" id="chimeThumb" aria-hidden="true"></div>
+    </div>
+
+    <div class="chimeLabels" id="chimeLabels">
+      <div class="opt sel" data-i="0">NONE</div>
+      <div class="opt" data-i="1">BEEP</div>
+      <div class="opt" data-i="2">ALARM</div>
+      <div class="opt" data-i="3">CHIME</div>
+      <div class="opt" data-i="4">BIRDS</div>
+    </div>
   </div>
 
   <button class="btn" id="pipBtn" title="Mini window (if supported)">⧉</button>
 </div>
+
 
 
     <div class="hint" id="hint">Drag dial hand to set the timer, release to start</div>
@@ -1177,6 +1267,7 @@ function toggleRun(){
   document.getElementById('soundBtn').addEventListener('click', async () => {
     audioOn = !audioOn; // ticking only
     document.getElementById('soundBtn').textContent = audioOn ? '🔊' : '🔇';
+    document.getElementById('soundBtn').classList.toggle('on', audioOn);
 
     if (audioOn){
       ensureAudio();
@@ -1301,11 +1392,12 @@ function updateChimeUI(dragIndex=null){
   const xPx = Math.round(xIdx * segW); // pixel snap removes visual jitter
   chThumb.style.transform = `translateX(${xPx}px)`;
 
-  const opts = chSel.querySelectorAll('.opt');
-  opts.forEach(el => {
-    const i = Number(el.dataset.i);
-    el.classList.toggle('sel', i === chimeMode);
-  });
+  const opts = document.querySelectorAll('#chimeLabels .opt');
+opts.forEach(el => {
+  const i = Number(el.dataset.i);
+  el.classList.toggle('sel', i === chimeMode);
+});
+
 
   chSel.title = 'Finish sound: ' + CHIME_NAMES[chimeMode];
 }
@@ -1353,12 +1445,21 @@ chSel.addEventListener('pointerdown', (e)=>{
   chSel.classList.add('dragging');
   try{ chSel.setPointerCapture(chPid); }catch(err){}
 
-  // If user pressed directly on an option label, snap immediately
+
+const chSel = document.getElementById('chimeSel');
+const chThumb = document.getElementById('chimeThumb');
+
+const chLabels = document.getElementById('chimeLabels');
+chLabels.addEventListener('pointerdown', (e) => {
   const opt = e.target?.closest?.('.opt');
-  if (opt){
-    setChimeMode(Number(opt.dataset.i), true);
-    return;
-  }
+  if (!opt) return;
+
+  // unlock audio early so alarms can play later
+  try{ ensureAudio(); audioCtx.resume(); }catch(_){}
+
+  setChimeMode(Number(opt.dataset.i), true);
+});
+
 
   // Otherwise begin smooth drag
   updateChimeUI(chimeIndexFromClientX(e.clientX));
