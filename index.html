@@ -63,22 +63,23 @@
   .brand .prop{font-size:12px;letter-spacing:.02em;color:var(--fg3);line-height:1.25;max-width:36ch;}
 
   .mini{
-  width:min(760px, 92%);
-  margin: 18px auto 0;
-
+  width: min(760px, 92%);
+  margin: 14px auto 0;                 /* closer to dial */
   display:grid;
-  grid-template-columns: 44px 1fr 44px;  /* left btn | centered switch | right btn */
+  grid-template-columns: var(--btnD) 1fr var(--btnD); /* ✅ REAL button diameter */
   align-items:center;
-  column-gap:12px;
+  column-gap:10px;                      /* tighter spacing */
 }
 
-#soundBtn{ justify-self:end; } /* snug to the switch */
-#pipBtn{ justify-self:start; } /* snug to the switch */
+#soundBtn{ justify-self:center; }
+#pipBtn{ justify-self:center; }
 
 #chimeSel{
   justify-self:center;
   width:min(560px, 100%);
 }
+
+.chimeWrap{ justify-self:center; }
 
 .miniBtns{
     display:flex;
@@ -156,29 +157,29 @@
   padding:0;
   line-height:1;
   backdrop-filter: blur(6px);
+    position: relative;   /* ✅ required for ::before */
+  overflow: hidden;     /* ✅ gold fill clips perfectly */
 }
 
 
 .btn:hover{ border-color:rgba(243,239,230,.32); }
 .btn:active{ transform:scale(.98); }
 .btn.on{
+  color: rgba(11,11,13,.92);  /* ✅ black icon WHEN possible */
   border-color: rgba(208,171,76,.55);
-  box-shadow: 0 10px 22px rgba(208,171,76,.10), inset 0 0 0 1px rgba(0,0,0,.22);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.22);
   background: rgba(11,11,13,.78);
 }
 
 .btn.on::before{
-  content:"";
-  position:absolute;
-  inset:3px;
-  border-radius:999px;
+  inset: 2px; /* was 3px: fills more of the button */
   background: radial-gradient(circle at 30% 30%,
     rgba(255,255,255,.55),
-    rgba(208,171,76,.85) 45%,
+    rgba(208,171,76,.88) 45%,
     rgba(208,171,76,1) 82%);
-  opacity:.95;
-  z-index:0;
+  opacity: 1;
 }
+
 .btn > *{ position:relative; z-index:1; }
 
 
@@ -209,10 +210,11 @@
 /* thumb sized to 1/5 of the short track */
 #chimeSel .thumb{
   position:absolute;
-  top:3px;
-  bottom:3px;
-  left:3px;
-  width: calc((100% - 6px) / 5);
+  #chimeSel .thumb{
+  top:4px;
+  bottom:4px;
+  left:4px;
+  width: calc((100% - 8px) / 5); /* because left/right padding is now 4px */
   border-radius:999px;
   background: radial-gradient(circle at 30% 30%,
       rgba(255,255,255,.70),
@@ -232,13 +234,14 @@
   left:50%;
   top:50%;
   transform: translate(-50%, -50%);
-  width: 12px;
-  height: 2px;
-  border-radius: 2px;
-  background: rgba(0,0,0,.45);
+  width: 2px;                 /* ✅ vertical notch */
+  height: 14px;
+  border-radius: 1px;
+  background: rgba(0,0,0,.42);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
-  opacity:.65;
+  opacity:.70;
 }
+
 
 
 #chimeSel.dragging .thumb{ transition:none; }
@@ -1323,6 +1326,14 @@ function toggleRun(){
 
   // Prefer Video PiP from canvas.captureStream (widely supported).
   let pipVideo = null;
+  let pipActive = false;
+const pipBtn = document.getElementById('pipBtn');
+
+function setPipActive(v){
+  pipActive = !!v;
+  pipBtn.classList.toggle('on', pipActive);
+}
+
   async function ensurePipVideo(){
     if (pipVideo) return pipVideo;
     pipVideo = document.createElement('video');
@@ -1335,6 +1346,9 @@ function toggleRun(){
     pipVideo.width = 360;
     pipVideo.height = 360;
     document.body.appendChild(pipVideo);
+    pipVideo.addEventListener('enterpictureinpicture', () => setPipActive(true));
+    pipVideo.addEventListener('leavepictureinpicture', () => setPipActive(false));
+
     if (canvas.captureStream){
       pipVideo.srcObject = canvas.captureStream(30);
       try{ await pipVideo.play(); }catch(e){}
@@ -1360,13 +1374,15 @@ function toggleRun(){
       const v = await ensurePipVideo();
       if (document.pictureInPictureElement){
         await document.exitPictureInPicture();
+        setPipActive(false);
         return;
       }
       if (v && v.requestPictureInPicture){
-        await v.requestPictureInPicture();
-        // Can't force min size here; browser decides. We just ensure it's crisp down small.
-        return;
-      }
+  await v.requestPictureInPicture();
+  setPipActive(true);
+  // Can't force min size here; browser decides. We just ensure it's crisp down small.
+  return;
+}
     } catch(e){}
 
     // 2) Document PiP (Chrome experimental) — clamp min size to 120px
@@ -1420,7 +1436,9 @@ const CHIME_COUNT = CHIME_NAMES.length;
 // IMPORTANT: chimeMode must exist globally (keep your existing one)
 function updateChimeUI(dragIndex=null){
   const r = chSel.getBoundingClientRect();
-  const segW = (r.width - 6) / CHIME_COUNT; // matches your 3px+3px padding
+  const PAD = 4;
+const segW = (r.width - PAD*2) / CHIME_COUNT;
+
 
   // dragIndex is a float, we map to continuous motion but keep in range
   const xIdx = (dragIndex === null) ? chimeMode : clamp(dragIndex, 0, CHIME_COUNT - 1);
@@ -1455,7 +1473,9 @@ function setChimeMode(m, announce=false){
 // Drag math helper
 function chimeIndexFromClientX(clientX){
   const r = chSel.getBoundingClientRect();
-  const x = clamp(clientX - r.left - 3, 0, r.width - 6); // content width
+ const PAD = 4;
+const x = clamp(clientX - r.left - PAD, 0, r.width - PAD*2);
+
   const segW = (r.width - 6) / CHIME_COUNT;
   return x / segW; // float index 0..(count-1)
 }
