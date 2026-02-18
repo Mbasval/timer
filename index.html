@@ -61,6 +61,7 @@
   .brand .title{font-size:22px;letter-spacing:.26em;text-transform:uppercase;color:var(--fg);line-height:1;} 
   .brand .sub{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--fg2);line-height:1.2;} 
   .brand .prop{font-size:12px;letter-spacing:.02em;color:var(--fg3);line-height:1.25;max-width:36ch;}
+
   .mini{
   width:min(760px, 92%);
   margin: 18px auto 0;
@@ -166,6 +167,20 @@
   background: rgba(11,11,13,.78);
 }
 
+.btn.on::before{
+  content:"";
+  position:absolute;
+  inset:3px;
+  border-radius:999px;
+  background: radial-gradient(circle at 30% 30%,
+    rgba(255,255,255,.55),
+    rgba(208,171,76,.85) 45%,
+    rgba(208,171,76,1) 82%);
+  opacity:.95;
+  z-index:0;
+}
+.btn > *{ position:relative; z-index:1; }
+
 
 /* center stack: short slider + external labels */
 .chimeWrap{
@@ -216,37 +231,57 @@
   position:absolute;
   left:50%;
   top:50%;
-  width: 18%;
-  height: 42%;
   transform: translate(-50%, -50%);
-  border-radius: 999px;
-  background: rgba(0,0,0,.22);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
-  opacity: .75;
+  width: 12px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(0,0,0,.45);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  opacity:.65;
 }
+
 
 #chimeSel.dragging .thumb{ transition:none; }
 
-/* labels outside */
-.chimeLabels{
-  width: 100%;
+#chimeLabels.chimeLabels{
+  width: clamp(200px, 40vw, 290px); /* ✅ match slider width */
   display:grid;
   grid-template-columns: repeat(5, 1fr);
-  align-items:center;
-  gap:0;
-  user-select:none;
-}
-.chimeLabels .opt{
+  align-items:end;
   text-align:center;
-  font-size:10px;
-  letter-spacing:.22em;
-  text-transform:uppercase;
-  color: rgba(243,239,230,.66);
-  cursor:pointer;
+  user-select:none;
+
+  margin-top:2px;
 }
-.chimeLabels .opt.sel{
+
+#chimeLabels .opt{
+  position:relative;
+  font-size:10px;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color: rgba(243,239,230,.68);
+  cursor:pointer;
+  padding-top:10px; /* room for the guide line */
+}
+
+#chimeLabels .opt::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:0px;
+  transform:translateX(-50%);
+  width:1px;
+  height:10px; /* guide line */
+  background: rgba(243,239,230,.28);
+}
+
+#chimeLabels .opt.sel{
   color: rgba(243,239,230,.92);
 }
+#chimeLabels .opt.sel::before{
+  background: rgba(208,171,76,.65); /* selected guide line turns gold */
+}
+
 
 @media (max-width: 640px){
   .mini{
