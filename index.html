@@ -239,6 +239,8 @@ canvas{
   text-align:center;
   user-select:none;
   margin-top:0;
+  padding-inline:3px;
+  box-sizing:border-box;
 }
 
 #chimeLabels .opt{
@@ -1518,21 +1520,21 @@ const CHIME_COUNT = CHIME_NAMES.length;
 // IMPORTANT: chimeMode must exist globally (keep your existing one)
 function updateChimeUI(dragIndex=null){
   const r = chSel.getBoundingClientRect();
-  const PAD = 4;
-const segW = (r.width - PAD*2) / CHIME_COUNT;
+  const PAD = 3;
+  const segW = (r.width - PAD * 2) / CHIME_COUNT;
 
-
-  // dragIndex is a float, we map to continuous motion but keep in range
   const xIdx = (dragIndex === null) ? chimeMode : clamp(dragIndex, 0, CHIME_COUNT - 1);
-  const xPx = Math.round(xIdx * segW); // pixel snap removes visual jitter
+  const xPx = Math.round(xIdx * segW);
   chThumb.style.transform = `translateX(${xPx}px)`;
 
   const opts = document.querySelectorAll('#chimeLabels .opt');
-opts.forEach(el => {
-  const i = Number(el.dataset.i);
-  el.classList.toggle('sel', i === chimeMode);
-});
+  opts.forEach(el => {
+    const i = Number(el.dataset.i);
+    el.classList.toggle('sel', i === chimeMode);
+  });
 
+  chSel.title = 'Finish sound: ' + CHIME_NAMES[chimeMode];
+}
 
   chSel.title = 'Finish sound: ' + CHIME_NAMES[chimeMode];
 }
