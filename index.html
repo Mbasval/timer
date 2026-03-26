@@ -542,7 +542,7 @@ async function ensureBirdBuffersLoaded(){
     const x = (clientX - r.left) / r.width  * canvas.width;
     const y = (clientY - r.top)  / r.height * canvas.height;
     const cx = canvas.width/2, cy = canvas.height/2;
-    return Math.hypot(x-cx, y-cy) <= canvas.width*0.11;
+    return Math.hypot(x-cx, y-cy) <= canvas.width*0.045;
   }
 
   function withinRing(clientX, clientY){
@@ -1877,7 +1877,8 @@ window.addEventListener('blur', () => { knobDown = false; });
       ctx.restore();
     }
 
-// Hand (Newgate-like: sharp dauphine + slim seconds)
+
+// Hand: faceted dauphine with real pivot and subtle counterweight
 {
   const a = (remMin > 0) ? handAng : angle0;
 
@@ -1885,61 +1886,106 @@ window.addEventListener('blur', () => { knobDown = false; });
   ctx.translate(cx, cy);
   ctx.rotate(a + Math.PI/2); // points "up"
 
-  const baseY     = -innerR * 0.34;
+  const pivotR    = w * 0.0105;
+  const hubR      = w * 0.018;
+  const collarR   = w * 0.028;
+
+  // thicker near the center, same elegant taper
+  const baseY     = -hubR * 0.30;
   const tipY      = -handLen;
 
-  // proportions similar to the reference
-  const baseW     = w * 0.030;
-  const midW      = w * 0.018;
-  const tipW      = w * 0.006;
-  const midY      = tipY * 0.58;
+  const baseW     = w * 0.040;
+  const shoulderW = w * 0.026;
+  const midW      = w * 0.015;
+  const tipW      = w * 0.0052;
 
-  // Soft shadow for depth (reads like real metal)
-  ctx.shadowColor = 'rgba(0,0,0,0.35)';
-  ctx.shadowBlur  = w * 0.010;
-  ctx.shadowOffsetY = w * 0.004;
+  const shoulderY = -handLen * 0.18;
+  const midY      = -handLen * 0.58;
 
-  // Main dauphine body (sharp, faceted)
+  // soft shadow
+  ctx.shadowColor = 'rgba(0,0,0,0.30)';
+  ctx.shadowBlur  = w * 0.008;
+  ctx.shadowOffsetY = w * 0.003;
+
+  // main hand body
   ctx.beginPath();
   ctx.moveTo(-baseW*0.5, baseY);
-  ctx.lineTo(-midW*0.5,  midY);
-  ctx.lineTo(-tipW*0.5,  tipY);
-  ctx.lineTo( tipW*0.5,  tipY);
-  ctx.lineTo( midW*0.5,  midY);
+  ctx.lineTo(-shoulderW*0.5, shoulderY);
+  ctx.lineTo(-midW*0.5, midY);
+  ctx.lineTo(-tipW*0.5, tipY);
+  ctx.lineTo( tipW*0.5, tipY);
+  ctx.lineTo( midW*0.5, midY);
+  ctx.lineTo( shoulderW*0.5, shoulderY);
   ctx.lineTo( baseW*0.5, baseY);
   ctx.closePath();
 
   ctx.fillStyle = GOLD_BASE;
   ctx.fill();
 
-  // Facet highlight (one side brighter like polished metal)
+  // center facet highlight
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
-  ctx.globalAlpha = 0.28;
+  ctx.globalAlpha = 0.24;
   ctx.beginPath();
   ctx.moveTo(0, baseY);
   ctx.lineTo(0, tipY);
   ctx.lineTo(-midW*0.52, midY);
+  ctx.lineTo(-shoulderW*0.52, shoulderY);
   ctx.closePath();
   ctx.fillStyle = 'rgba(255,255,255,1)';
   ctx.fill();
   ctx.restore();
 
-  // Slim seconds hand (very thin, understated)
+  // subtle bevel line
   ctx.beginPath();
-  ctx.moveTo(0, w * 0.020);
-  ctx.lineTo(0, -outerR * 0.76);
-  ctx.strokeStyle = 'rgba(243,239,230,0.10)'; // softer
-  ctx.lineWidth = w*0.00016;                      // thinner
+  ctx.moveTo(0, baseY + w*0.002);
+  ctx.lineTo(0, tipY - w*0.004);
+  ctx.strokeStyle = 'rgba(0,0,0,0.16)';
+  ctx.lineWidth = w * 0.0012;
+  ctx.stroke();
+
+  // counterweight stem
+  const tailY0 = hubR * 0.10;
+  const tailY1 = outerR * 0.16;
+  ctx.beginPath();
+  ctx.moveTo(-w*0.0022, tailY0);
+  ctx.lineTo(-w*0.0015, tailY1);
+  ctx.lineTo( w*0.0015, tailY1);
+  ctx.lineTo( w*0.0022, tailY0);
+  ctx.closePath();
+  ctx.fillStyle = GOLD_BASE;
+  ctx.fill();
+
+  // counterweight ring, subtle
+  const cwY = outerR * 0.20;
+  const cwR = w * 0.016;
+  ctx.beginPath();
+  ctx.arc(0, cwY, cwR, 0, TAU);
+  ctx.lineWidth = w * 0.0032;
+  ctx.strokeStyle = 'rgba(208,171,76,0.92)';
+  ctx.stroke();
+
+  // tiny highlight on counterweight
+  ctx.beginPath();
+  ctx.arc(-cwR*0.22, cwY - cwR*0.22, cwR*0.20, 0, TAU);
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.fill();
+
+  // very soft seconds arbor line
+  ctx.beginPath();
+  ctx.moveTo(0, -outerR * 0.74);
+  ctx.lineTo(0, outerR * 0.11);
+  ctx.strokeStyle = 'rgba(243,239,230,0.08)';
+  ctx.lineWidth = w * 0.0011;
   ctx.lineCap = 'round';
   ctx.stroke();
 
-  // Remove any previous deco tip/cap blocks from your old hand — this replaces them.
-
   ctx.restore();
 }
+
+
 
     // minute marks — subtle elegant dashes
 ctx.save();
@@ -1991,66 +2037,63 @@ ctx.restore();
     }
     ctx.restore();
 
-// --- Knob: slimmer Art Deco center ---
+// --- Normal clock center: mechanical pivot only ---
 ctx.save();
 ctx.translate(cx, cy);
 
 const pressed = !!knobDown;
-const k = knobR;
+const pressY = pressed ? (w * 0.0025) : 0;
 
-// much slimmer proportions
-const bezelTip   = k * 1.12;
-const bezelBody  = k * 0.86;
-const innerSeat  = k * 0.58;
-const btnR       = k * 0.44;
-const pressY     = pressed ? (w * 0.004) : 0;
-
-// soft shadow
-ctx.save();
-ctx.shadowColor = 'rgba(0,0,0,0.36)';
-ctx.shadowBlur  = w * (pressed ? 0.008 : 0.014);
-ctx.shadowOffsetY = w * (pressed ? 0.0015 : 0.004);
-
-// outer diamond bezel
+// outer seat
+const seatR = knobR * 0.30;
 ctx.beginPath();
-ctx.moveTo(0, -bezelTip);
-ctx.lineTo(bezelTip, 0);
-ctx.lineTo(0, bezelTip);
-ctx.lineTo(-bezelTip, 0);
-ctx.closePath();
+ctx.arc(0, pressY, seatR, 0, TAU);
 
-const brass = ctx.createLinearGradient(-bezelTip, -bezelTip, bezelTip, bezelTip);
-brass.addColorStop(0.00, '#72511A');
-brass.addColorStop(0.24, '#C9A24B');
-brass.addColorStop(0.44, '#FFF1BB');
-brass.addColorStop(0.68, '#CF9F3F');
-brass.addColorStop(1.00, '#8A6921');
-ctx.fillStyle = brass;
+const seatGrad = ctx.createRadialGradient(
+  -seatR*0.28, -seatR*0.28 + pressY, seatR*0.08,
+   0,          pressY,               seatR*1.02
+);
+seatGrad.addColorStop(0.00, 'rgba(255,255,255,0.70)');
+seatGrad.addColorStop(0.45, 'rgba(243,239,230,0.96)');
+seatGrad.addColorStop(1.00, 'rgba(150,146,138,0.96)');
+ctx.fillStyle = seatGrad;
 ctx.fill();
 
-ctx.shadowBlur = 0;
-ctx.shadowOffsetY = 0;
-ctx.lineWidth = w * 0.0035;
-ctx.strokeStyle = 'rgba(0,0,0,0.24)';
+ctx.lineWidth = w * 0.0028;
+ctx.strokeStyle = 'rgba(0,0,0,0.18)';
 ctx.stroke();
 
-// inner stepped diamond
+// brass retaining ring
+const ringR = knobR * 0.17;
 ctx.beginPath();
-ctx.moveTo(0, -bezelBody);
-ctx.lineTo(innerSeat, -innerSeat);
-ctx.lineTo(bezelBody, 0);
-ctx.lineTo(innerSeat, innerSeat);
-ctx.lineTo(0, bezelBody);
-ctx.lineTo(-innerSeat, innerSeat);
-ctx.lineTo(-bezelBody, 0);
-ctx.lineTo(-innerSeat, -innerSeat);
-ctx.closePath();
+ctx.arc(0, pressY, ringR, 0, TAU);
+ctx.lineWidth = w * 0.0030;
+ctx.strokeStyle = 'rgba(208,171,76,0.90)';
+ctx.stroke();
 
-ctx.globalCompositeOperation = 'overlay';
-ctx.fillStyle = 'rgba(255,255,255,0.09)';
+// pivot cap
+const capR = knobR * 0.075;
+ctx.beginPath();
+ctx.arc(0, pressY, capR, 0, TAU);
+
+const capGrad = ctx.createRadialGradient(
+  -capR*0.24, -capR*0.24 + pressY, capR*0.06,
+   0,         pressY,              capR*1.02
+);
+capGrad.addColorStop(0.00, 'rgba(255,248,210,0.96)');
+capGrad.addColorStop(0.60, 'rgba(208,171,76,0.95)');
+capGrad.addColorStop(1.00, 'rgba(128,95,28,0.98)');
+ctx.fillStyle = capGrad;
 ctx.fill();
-ctx.globalCompositeOperation = 'source-over';
+
+// tiny highlight
+ctx.beginPath();
+ctx.arc(-capR*0.20, pressY - capR*0.20, capR*0.16, 0, TAU);
+ctx.fillStyle = 'rgba(255,255,255,0.22)';
+ctx.fill();
+
 ctx.restore();
+
 
 // center button
 ctx.save();
