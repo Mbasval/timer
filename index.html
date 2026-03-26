@@ -542,7 +542,7 @@ async function ensureBirdBuffersLoaded(){
     const x = (clientX - r.left) / r.width  * canvas.width;
     const y = (clientY - r.top)  / r.height * canvas.height;
     const cx = canvas.width/2, cy = canvas.height/2;
-    return Math.hypot(x-cx, y-cy) <= canvas.width*0.045;
+    return Math.hypot(x-cx, y-cy) <= canvas.width*0.070;
   }
 
   function withinRing(clientX, clientY){
@@ -1333,16 +1333,13 @@ function toggleRun(){
   });
 
 
-  // Picture-in-Picture / mini-window
-  // Goal: freely resizable mini view, readable down to 120px.
-  // Notes:
-  // - Video PiP (requestPictureInPicture) is usually resizable by the user, but browsers control min size.
-  // - Document PiP / popout can be clamped to a 120px minimum.
-  const MIN_PIP = 120;
 
-  // Prefer Video PiP from canvas.captureStream (widely supported).
-  let pipVideo = null;
-  let pipActive = false;
+// Picture-in-Picture / mini-window
+const MIN_PIP = 120;
+
+let pipVideo = null;
+let pipActive = false;
+let pipDocWindow = null;
 const pipBtn = document.getElementById('pipBtn');
 
 function setPipActive(v){
@@ -1350,98 +1347,167 @@ function setPipActive(v){
   pipBtn.classList.toggle('on', pipActive);
 }
 
-  async function ensurePipVideo(){
-    if (pipVideo) return pipVideo;
-    pipVideo = document.createElement('video');
-    pipVideo.muted = true;
-    pipVideo.playsInline = true;
-    pipVideo.style.position = 'fixed';
-    pipVideo.style.left = '-9999px';
-    pipVideo.style.top = '-9999px';
-    // Higher internal resolution keeps it crisp when resized small.
-    pipVideo.width = 360;
-    pipVideo.height = 360;
-    document.body.appendChild(pipVideo);
-    pipVideo.addEventListener('enterpictureinpicture', () => setPipActive(true));
-    pipVideo.addEventListener('leavepictureinpicture', () => setPipActive(false));
+async function ensurePipVideo(){
+  if (pipVideo) return pipVideo;
 
-    if (canvas.captureStream){
-      pipVideo.srcObject = canvas.captureStream(30);
-      try{ await pipVideo.play(); }catch(e){}
-    }
-    return pipVideo;
+  pipVideo = document.createElement('video');
+  pipVideo.muted = true;
+  pipVideo.playsInline = true;
+  pipVideo.autoplay = true;
+  pipVideo.style.position = 'fixed';
+  pipVideo.style.left = '-9999px';
+  pipVideo.style.top = '-9999px';
+  pipVideo.width = 360;
+  pipVideo.height = 360;
+
+  pipVideo.addEventListener('enterpictureinpicture', () => {
+    setPipActive(true);
+  });
+
+  pipVideo.addEventListener('leavepictureinpicture', () => {
+    setPipActive(false);
+  });
+
+  document.body.appendChild(pipVideo);
+
+  if (canvas.captureStream){
+    pipVideo.srcObject = canvas.captureStream(30);
+    try{
+      await pipVideo.play();
+    }catch(e){}
   }
 
-  function clampWindowMinSize(win){
-    // Try to enforce a 120px minimum for windows we control (Document PiP / popout).
-    try{
-      const w = Math.max(MIN_PIP, win.innerWidth || 0);
-      const h = Math.max(MIN_PIP, win.innerHeight || 0);
-      if ((win.innerWidth || 0) < MIN_PIP || (win.innerHeight || 0) < MIN_PIP){
-        // Some browsers may block resizeTo; safe to try.
-        win.resizeTo(w, h);
-      }
-    } catch(e){}
-  }
-
-  document.getElementById('pipBtn').addEventListener('click', async () => {
-    // 1) Video PiP (user-resizable; min size is browser-controlled)
-    try{
-      const v = await ensurePipVideo();
-      if (document.pictureInPictureElement){
-        await document.exitPictureInPicture();
-        setPipActive(false);
-        return;
-      }
-      if (v && v.requestPictureInPicture){
-  await v.requestPictureInPicture();
-  setPipActive(true);
-  // Can't force min size here; browser decides. We just ensure it's crisp down small.
-  return;
+  return pipVideo;
 }
-    } catch(e){}
 
-    // 2) Document PiP (Chrome experimental) — clamp min size to 120px
-    if ('documentPictureInPicture' in window){
-      try{
-        const pipWindow = await window.documentPictureInPicture.requestWindow({width: 240, height: 240});
-        pipWindow.document.documentElement.style.height = '100%';
-        pipWindow.document.body.style.margin = '0';
-        pipWindow.document.body.style.height = '100%';
-        pipWindow.document.body.style.background = BG;
-        pipWindow.document.body.style.minWidth = MIN_PIP + 'px';
-        pipWindow.document.body.style.minHeight = MIN_PIP + 'px';
-
-        const c2 = document.createElement('canvas');
-        c2.width = 360; c2.height = 360;
-        c2.style.width = '100%';
-        c2.style.height = '100%';
-        c2.style.minWidth = MIN_PIP + 'px';
-        c2.style.minHeight = MIN_PIP + 'px';
-        pipWindow.document.body.appendChild(c2);
-
-        const pipCtx = c2.getContext('2d');
-        function mirror(){
-          try{ pipCtx.clearRect(0,0,c2.width,c2.height); pipCtx.drawImage(canvas,0,0,c2.width,c2.height); }catch(e){}
-          if (!pipWindow.closed) requestAnimationFrame(mirror);
-        }
-        mirror();
-
-        pipWindow.addEventListener('resize', () => clampWindowMinSize(pipWindow));
-        clampWindowMinSize(pipWindow);
-        return;
-      } catch(e){}
+function clampWindowMinSize(win){
+  try{
+    const ww = Math.max(MIN_PIP, win.innerWidth || 0);
+    const hh = Math.max(MIN_PIP, win.innerHeight || 0);
+    if ((win.innerWidth || 0) < MIN_PIP || (win.innerHeight || 0) < MIN_PIP){
+      win.resizeTo(ww, hh);
     }
+  }catch(e){}
+}
 
-    // 3) Popout fallback — freely resizable; clamp min size to 120px
-    const w = window.open(location.href, 'gilt_popout', 'width=320,height=320,resizable=1,menubar=0,toolbar=0,location=0,status=0');
-    if (!w){
-      alert('Pop-up blocked. Allow pop-ups for this site to use a resizable mini window.');
+async function closeAnyPip(){
+  // close video PiP
+  try{
+    if (document.pictureInPictureElement){
+      await document.exitPictureInPicture();
+    }
+  }catch(e){}
+
+  // close document PiP
+  try{
+    if (pipDocWindow && !pipDocWindow.closed){
+      pipDocWindow.close();
+    }
+  }catch(e){}
+
+  pipDocWindow = null;
+  setPipActive(false);
+}
+
+pipBtn.addEventListener('click', async () => {
+  // toggle OFF if any PiP is already active
+  if (pipActive || document.pictureInPictureElement || (pipDocWindow && !pipDocWindow.closed)){
+    await closeAnyPip();
+    return;
+  }
+
+  // 1) Standard Video PiP
+  try{
+    const v = await ensurePipVideo();
+    if (v && v.requestPictureInPicture){
+      await v.requestPictureInPicture();
+      setPipActive(true);
       return;
     }
-    // Best-effort min clamp (browser may restrict).
-    w.addEventListener?.('resize', () => clampWindowMinSize(w));
-  });
+  }catch(e){}
+
+  // 2) Document PiP
+  if ('documentPictureInPicture' in window){
+    try{
+      const win = await window.documentPictureInPicture.requestWindow({
+        width: 240,
+        height: 240
+      });
+
+      pipDocWindow = win;
+      setPipActive(true);
+
+      win.document.documentElement.style.height = '100%';
+      win.document.body.style.margin = '0';
+      win.document.body.style.height = '100%';
+      win.document.body.style.background = BG;
+      win.document.body.style.minWidth = MIN_PIP + 'px';
+      win.document.body.style.minHeight = MIN_PIP + 'px';
+      win.document.body.style.overflow = 'hidden';
+
+      const c2 = document.createElement('canvas');
+      c2.width = 360;
+      c2.height = 360;
+      c2.style.width = '100%';
+      c2.style.height = '100%';
+      c2.style.display = 'block';
+      win.document.body.appendChild(c2);
+
+      const pipCtx = c2.getContext('2d');
+
+      function mirror(){
+        try{
+          pipCtx.clearRect(0, 0, c2.width, c2.height);
+          pipCtx.drawImage(canvas, 0, 0, c2.width, c2.height);
+        }catch(e){}
+        if (pipDocWindow && !pipDocWindow.closed){
+          pipDocWindow.requestAnimationFrame(mirror);
+        }
+      }
+      mirror();
+
+      win.addEventListener('pagehide', () => {
+        pipDocWindow = null;
+        setPipActive(false);
+      });
+
+      win.addEventListener('beforeunload', () => {
+        pipDocWindow = null;
+        setPipActive(false);
+      });
+
+      win.addEventListener('resize', () => clampWindowMinSize(win));
+      clampWindowMinSize(win);
+      return;
+    }catch(e){}
+  }
+
+  // 3) Popout fallback
+  const pop = window.open(
+    location.href,
+    'gilt_popout',
+    'width=320,height=320,resizable=1,menubar=0,toolbar=0,location=0,status=0'
+  );
+
+  if (!pop){
+    alert('Pop-up blocked. Allow pop-ups for this site to use a mini window.');
+    return;
+  }
+
+  setPipActive(true);
+
+  const popWatcher = setInterval(() => {
+    if (pop.closed){
+      clearInterval(popWatcher);
+      setPipActive(false);
+    }
+  }, 400);
+
+  pop.addEventListener?.('resize', () => clampWindowMinSize(pop));
+});
+
+
+
 // --- Chime selector (slide switch: 5 options) ---
 const chSel = document.getElementById('chimeSel');
 const chThumb = document.getElementById('chimeThumb');
@@ -1878,36 +1944,33 @@ window.addEventListener('blur', () => { knobDown = false; });
     }
 
 
-// Hand: faceted dauphine with real pivot and subtle counterweight
+
+// Hand: keep your faceted hand, add simple proportional counterweight
 {
   const a = (remMin > 0) ? handAng : angle0;
 
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.rotate(a + Math.PI/2); // points "up"
+  ctx.rotate(a + Math.PI/2); // points up
 
-  const pivotR    = w * 0.0105;
-  const hubR      = w * 0.018;
-  const collarR   = w * 0.028;
+  const hubR = w * 0.017;
 
-  // thicker near the center, same elegant taper
-  const baseY     = -hubR * 0.30;
+  // hand body — a bit thicker near center, same bezel language
+  const baseY     = -hubR * 0.18;
   const tipY      = -handLen;
 
-  const baseW     = w * 0.040;
-  const shoulderW = w * 0.026;
-  const midW      = w * 0.015;
-  const tipW      = w * 0.0052;
+  const baseW     = w * 0.044;
+  const shoulderW = w * 0.028;
+  const midW      = w * 0.016;
+  const tipW      = w * 0.0054;
 
-  const shoulderY = -handLen * 0.18;
+  const shoulderY = -handLen * 0.16;
   const midY      = -handLen * 0.58;
 
-  // soft shadow
-  ctx.shadowColor = 'rgba(0,0,0,0.30)';
+  ctx.shadowColor = 'rgba(0,0,0,0.28)';
   ctx.shadowBlur  = w * 0.008;
   ctx.shadowOffsetY = w * 0.003;
 
-  // main hand body
   ctx.beginPath();
   ctx.moveTo(-baseW*0.5, baseY);
   ctx.lineTo(-shoulderW*0.5, shoulderY);
@@ -1918,72 +1981,69 @@ window.addEventListener('blur', () => { knobDown = false; });
   ctx.lineTo( shoulderW*0.5, shoulderY);
   ctx.lineTo( baseW*0.5, baseY);
   ctx.closePath();
-
   ctx.fillStyle = GOLD_BASE;
   ctx.fill();
 
-  // center facet highlight
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
+
+  // highlight bevel, same language as your current hand
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
-  ctx.globalAlpha = 0.24;
+  ctx.globalAlpha = 0.22;
   ctx.beginPath();
   ctx.moveTo(0, baseY);
   ctx.lineTo(0, tipY);
-  ctx.lineTo(-midW*0.52, midY);
-  ctx.lineTo(-shoulderW*0.52, shoulderY);
+  ctx.lineTo(-midW*0.50, midY);
+  ctx.lineTo(-shoulderW*0.50, shoulderY);
   ctx.closePath();
   ctx.fillStyle = 'rgba(255,255,255,1)';
   ctx.fill();
   ctx.restore();
 
-  // subtle bevel line
   ctx.beginPath();
   ctx.moveTo(0, baseY + w*0.002);
   ctx.lineTo(0, tipY - w*0.004);
-  ctx.strokeStyle = 'rgba(0,0,0,0.16)';
+  ctx.strokeStyle = 'rgba(0,0,0,0.15)';
   ctx.lineWidth = w * 0.0012;
   ctx.stroke();
 
-  // counterweight stem
-  const tailY0 = hubR * 0.10;
-  const tailY1 = outerR * 0.16;
+  // simple counterweight like your reference: slim stem + pointed tail
+  const tailBaseY = hubR * 0.10;
+  const tailTipY  = outerR * 0.22;
+
+  const tailBaseW = w * 0.010;
+  const tailMidW  = w * 0.020;
+  const tailTipW  = w * 0.0028;
+  const tailMidY  = outerR * 0.11;
+
   ctx.beginPath();
-  ctx.moveTo(-w*0.0022, tailY0);
-  ctx.lineTo(-w*0.0015, tailY1);
-  ctx.lineTo( w*0.0015, tailY1);
-  ctx.lineTo( w*0.0022, tailY0);
+  ctx.moveTo(-tailBaseW*0.5, tailBaseY);
+  ctx.lineTo(-tailMidW*0.5, tailMidY);
+  ctx.lineTo(-tailTipW*0.5, tailTipY);
+  ctx.lineTo( tailTipW*0.5, tailTipY);
+  ctx.lineTo( tailMidW*0.5, tailMidY);
+  ctx.lineTo( tailBaseW*0.5, tailBaseY);
   ctx.closePath();
   ctx.fillStyle = GOLD_BASE;
   ctx.fill();
 
-  // counterweight ring, subtle
-  const cwY = outerR * 0.20;
-  const cwR = w * 0.016;
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = 0.18;
   ctx.beginPath();
-  ctx.arc(0, cwY, cwR, 0, TAU);
-  ctx.lineWidth = w * 0.0032;
-  ctx.strokeStyle = 'rgba(208,171,76,0.92)';
-  ctx.stroke();
-
-  // tiny highlight on counterweight
-  ctx.beginPath();
-  ctx.arc(-cwR*0.22, cwY - cwR*0.22, cwR*0.20, 0, TAU);
-  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.moveTo(0, tailBaseY);
+  ctx.lineTo(0, tailTipY);
+  ctx.lineTo(-tailMidW*0.48, tailMidY);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,1)';
   ctx.fill();
-
-  // very soft seconds arbor line
-  ctx.beginPath();
-  ctx.moveTo(0, -outerR * 0.74);
-  ctx.lineTo(0, outerR * 0.11);
-  ctx.strokeStyle = 'rgba(243,239,230,0.08)';
-  ctx.lineWidth = w * 0.0011;
-  ctx.lineCap = 'round';
-  ctx.stroke();
+  ctx.restore();
 
   ctx.restore();
 }
+
+
 
 
 
@@ -2037,42 +2097,35 @@ ctx.restore();
     }
     ctx.restore();
 
-// --- Normal clock center: mechanical pivot only ---
+
+
+// --- Normal clock pivot ---
 ctx.save();
 ctx.translate(cx, cy);
 
 const pressed = !!knobDown;
-const pressY = pressed ? (w * 0.0025) : 0;
+const pressY = pressed ? (w * 0.002) : 0;
 
-// outer seat
-const seatR = knobR * 0.30;
+const seatR = knobR * 0.16;
+const capR  = knobR * 0.072;
+
 ctx.beginPath();
 ctx.arc(0, pressY, seatR, 0, TAU);
 
 const seatGrad = ctx.createRadialGradient(
-  -seatR*0.28, -seatR*0.28 + pressY, seatR*0.08,
+  -seatR*0.24, -seatR*0.24 + pressY, seatR*0.06,
    0,          pressY,               seatR*1.02
 );
-seatGrad.addColorStop(0.00, 'rgba(255,255,255,0.70)');
-seatGrad.addColorStop(0.45, 'rgba(243,239,230,0.96)');
-seatGrad.addColorStop(1.00, 'rgba(150,146,138,0.96)');
+seatGrad.addColorStop(0.00, 'rgba(255,255,255,0.62)');
+seatGrad.addColorStop(0.52, 'rgba(243,239,230,0.94)');
+seatGrad.addColorStop(1.00, 'rgba(145,140,132,0.96)');
 ctx.fillStyle = seatGrad;
 ctx.fill();
 
-ctx.lineWidth = w * 0.0028;
+ctx.lineWidth = w * 0.0022;
 ctx.strokeStyle = 'rgba(0,0,0,0.18)';
 ctx.stroke();
 
-// brass retaining ring
-const ringR = knobR * 0.17;
-ctx.beginPath();
-ctx.arc(0, pressY, ringR, 0, TAU);
-ctx.lineWidth = w * 0.0030;
-ctx.strokeStyle = 'rgba(208,171,76,0.90)';
-ctx.stroke();
-
-// pivot cap
-const capR = knobR * 0.075;
 ctx.beginPath();
 ctx.arc(0, pressY, capR, 0, TAU);
 
@@ -2086,55 +2139,13 @@ capGrad.addColorStop(1.00, 'rgba(128,95,28,0.98)');
 ctx.fillStyle = capGrad;
 ctx.fill();
 
-// tiny highlight
 ctx.beginPath();
-ctx.arc(-capR*0.20, pressY - capR*0.20, capR*0.16, 0, TAU);
-ctx.fillStyle = 'rgba(255,255,255,0.22)';
+ctx.arc(-capR*0.18, pressY - capR*0.18, capR*0.14, 0, TAU);
+ctx.fillStyle = 'rgba(255,255,255,0.20)';
 ctx.fill();
 
 ctx.restore();
 
-
-// center button
-ctx.save();
-ctx.shadowColor = 'rgba(0,0,0,0.28)';
-ctx.shadowBlur  = w * (pressed ? 0.006 : 0.012);
-ctx.shadowOffsetY = w * (pressed ? 0.001 : 0.003);
-
-ctx.beginPath();
-ctx.arc(0, pressY, btnR, 0, TAU);
-
-const face = ctx.createRadialGradient(
-  -btnR*0.22, -btnR*0.24 + pressY, btnR*0.08,
-   0,          pressY,             btnR*1.02
-);
-face.addColorStop(0.00, 'rgba(255,255,255,0.76)');
-face.addColorStop(0.48, 'rgba(243,239,230,0.94)');
-face.addColorStop(1.00, 'rgba(214,207,195,0.94)');
-ctx.fillStyle = face;
-ctx.fill();
-
-ctx.shadowBlur = 0;
-ctx.shadowOffsetY = 0;
-ctx.lineWidth = w * 0.0035;
-ctx.strokeStyle = 'rgba(0,0,0,0.20)';
-ctx.stroke();
-
-// tiny gold cap
-ctx.beginPath();
-ctx.arc(0, pressY, btnR * 0.18, 0, TAU);
-ctx.fillStyle = 'rgba(208,171,76,0.92)';
-ctx.fill();
-
-ctx.beginPath();
-ctx.arc(-btnR*0.10, pressY - btnR*0.12, btnR*0.06, 0, TAU);
-ctx.fillStyle = 'rgba(255,255,255,0.22)';
-ctx.fill();
-
-ctx.restore();
-ctx.restore();
-
-ctx.restore();
 
 
     if (isActive){
